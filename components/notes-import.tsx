@@ -114,8 +114,9 @@ export function NotesImportControl({ importing, onImportFiles }: { importing: bo
 			<input ref={folderRef} type="file" {...{ webkitdirectory: "" }} className="hidden" onChange={onChange} />
 			<Hint label={t("graph.extractTitle")} side="bottom">
 				<button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" data-testid="import-notes"
-					className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent">
-					<WaypointsIcon className="size-3" />{importing ? t("graph.extracting") : t("graph.extractAction")}
+					aria-label={importing ? t("graph.extracting") : t("graph.extractAction")}
+					className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent max-md:px-2">
+					<WaypointsIcon className="size-3" /><span className="max-md:hidden">{importing ? t("graph.extracting") : t("graph.extractAction")}</span>
 				</button>
 			</Hint>
 			{open && (

@@ -33,7 +33,7 @@ import {
 	type ReactNode,
 	type RefObject,
 } from "react";
-import { BotIcon, KeyIcon, KeyboardIcon, PaletteIcon, PlugIcon, PuzzleIcon, SettingsIcon, WaypointsIcon, type LucideIcon } from "lucide-react";
+import { BotIcon, ChevronLeftIcon, KeyIcon, KeyboardIcon, PaletteIcon, PlugIcon, PuzzleIcon, SettingsIcon, WaypointsIcon, type LucideIcon } from "lucide-react";
 import { HostDialog } from "@/components/host-dialog";
 import { useInteractionLayers, type CloseOutcome } from "@/components/interaction-layers";
 import {
@@ -63,6 +63,8 @@ import { useT } from "@/components/i18n/i18n-provider";
 import { apiErrorMessage } from "@/components/i18n/api-error";
 import { ChatGPTUIProvider } from "./chatgpt-connection.tsx";
 import { NativeSubscriptionUIProvider } from "./subscription-connections.tsx";
+import { useCompact } from "@/components/use-compact";
+import { registerNativeBack } from "@/components/native-back";
 
 /** Owner (2026-09-20): hints earn their place — mechanics-explaining
  *  prose is out; only the keyboard note stays (storage location is a
@@ -108,6 +110,9 @@ export function SettingsDialogProvider({
 	const [show, setShow] = useState(false);
 	const [landOn, setLandOn] = useState<SectionId>("keys");
 	const [landOnRow, setLandOnRow] = useState<string | null>(null);
+	// A deep link (first-run setup, dictation error) lands on its section;
+	// a plain "open settings" from the sidebar lands on the mobile list.
+	const [landOnDetail, setLandOnDetail] = useState(false);
 	const [navigationRequest, setNavigationRequest] = useState(0);
 	const open = useCallback((section?: string, row?: string) => {
 		// Returning to this singleton is a bounded request, not a forced pop.
@@ -117,6 +122,7 @@ export function SettingsDialogProvider({
 		setNavigationRequest(request => request + 1);
 		setLandOn(section ? section as SectionId : "keys");
 		setLandOnRow(row ?? null);
+		setLandOnDetail(Boolean(section || row));
 		setShow(true);
 	}, [interactions, layerId]);
 	const close = useCallback((): CloseOutcome => { setShow(false); return "closed"; }, []);
@@ -133,7 +139,7 @@ export function SettingsDialogProvider({
 		<ChatGPTUIProvider><NativeSubscriptionUIProvider><WriteOrderContext.Provider value={writeOrder}><DialogContext.Provider value={{ open }}>
 			{children}
 			{show && (
-				<SettingsDialog onClose={close} initialSection={landOn} initialRow={landOnRow} navigationRequest={navigationRequest} layerId={layerId} />
+				<SettingsDialog onClose={close} initialSection={landOn} initialRow={landOnRow} initialDetail={landOnDetail} navigationRequest={navigationRequest} layerId={layerId} />
 			)}
 		</DialogContext.Provider></WriteOrderContext.Provider></NativeSubscriptionUIProvider></ChatGPTUIProvider>
 	);
@@ -147,6 +153,7 @@ function SettingsDialog({
 	onClose,
 	initialSection,
 	initialRow,
+	initialDetail,
 	navigationRequest,
 	layerId,
 }: {
@@ -156,12 +163,14 @@ function SettingsDialog({
 	layerId: string;
 	/** The keys-section row to unfold (see DialogContext above). */
 	initialRow: string | null;
+	/** Deep link: skip the compact section list and show the section itself. */
+	initialDetail: boolean;
 }) {
 	const t = useT();
 	// Keep the original visual frame and plain dim backdrop. The shared
 	// untransformed boundary also contains this modal's portaled menus.
 	return <SettingsDialogBody onClose={onClose} initialSection={initialSection}
-		initialRow={initialRow} navigationRequest={navigationRequest}
+		initialRow={initialRow} initialDetail={initialDetail} navigationRequest={navigationRequest}
 		renderFrame={frame => <HostDialog open layerId={layerId} ownerId={null}
 			onClose={onClose} frame={frame} aria-label={t("settings.title")}
 			backdropProps={{
@@ -176,6 +185,7 @@ export function SettingsDialogBody({
 	onClose,
 	initialSection = "keys",
 	initialRow = null,
+	initialDetail = false,
 	navigationRequest = 0,
 	renderFrame,
 }: {
@@ -188,8 +198,14 @@ export function SettingsDialogBody({
 	/** The keys row to unfold on arrival (null = none). While-open
 	 *  retargets follow it exactly like initialSection below. */
 	initialRow?: string | null;
+	/** Compact viewports: show this section directly instead of the list. */
+	initialDetail?: boolean;
 }) {
 	const t = useT();
+	const compact = useCompact();
+	// Compact-only: the settings open as a full-screen list of sections;
+	// choosing one swaps to that section with a back affordance.
+	const [mobileDetail, setMobileDetail] = useState(initialDetail);
 	const { onAppearanceChange } = useAppearance();
 	const inheritedWriteOrder = useContext(WriteOrderContext);
 	const standaloneWriteOrder = useRef<SettingsWriteOrder>({ issued: 0, acknowledged: 0, listeners: new Set() });
@@ -241,6 +257,23 @@ export function SettingsDialogBody({
 	useEffect(() => {
 		setActive(initialSection);
 	}, [initialSection, navigationRequest]);
+
+	// Compact: a deep link opens its section; a plain open shows the list.
+	useEffect(() => {
+		if (compact) setMobileDetail(initialDetail);
+	}, [compact, initialDetail, navigationRequest]);
+
+	// Android back: detail → list → dialog closed, in that order.
+	useEffect(() => {
+		return registerNativeBack(() => {
+			if (compact && mobileDetail) {
+				setMobileDetail(false);
+				return true;
+			}
+			onClose();
+			return true;
+		});
+	}, [compact, mobileDetail, onClose]);
 
 	const enabledPlugins = snapshot.plugins.filter(plugin => plugin.info.enabled);
 	const activePluginId = active.startsWith("plugin:") ? active.slice("plugin:".length) : null;
@@ -353,12 +386,31 @@ export function SettingsDialogBody({
 			aria-modal="true"
 			aria-label={t("settings.title")}
 			data-testid="settings-dialog"
-			className="settings-dialog-pop flex h-[620px] max-h-[85vh] w-[920px] max-w-[90vw] flex-col overflow-hidden rounded-md border border-border bg-card shadow-xl"
+			className={
+				compact
+					? "settings-dialog-pop lh-safe-inset flex h-dvh w-full max-w-none flex-col overflow-hidden bg-card shadow-xl"
+					: "settings-dialog-pop flex h-[620px] max-h-[85vh] w-[920px] max-w-[90vw] flex-col overflow-hidden rounded-md border border-border bg-card shadow-xl"
+			}
 			onClick={(e) => e.stopPropagation()}
 		>
 			{/* Header — the app's quiet CMU title language. */}
-			<header className="flex h-15 shrink-0 items-center gap-3 border-b border-border px-5">
-				<h2 className="font-title text-2xl tracking-tight">{t("settings.title")}</h2>
+			<header className="flex h-15 shrink-0 items-center gap-3 border-b border-border px-5 max-md:h-14 max-md:px-3">
+				{compact && mobileDetail && (
+					<button
+						type="button"
+						aria-label={t("common.back")}
+						data-testid="settings-back"
+						className="-ml-1 flex size-9 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+						onClick={() => setMobileDetail(false)}
+					>
+						<ChevronLeftIcon aria-hidden="true" className="size-4" />
+					</button>
+				)}
+				<h2 className="min-w-0 truncate font-title text-2xl tracking-tight max-md:text-lg">
+					{compact && mobileDetail
+						? navSections.find((section) => section.id === selected)?.label ?? t("settings.title")
+						: t("settings.title")}
+				</h2>
 				<Hint
 						// Esc closes through the shared interaction owner.
 						label={t("settings.dialog.closeLabel")}
@@ -388,10 +440,14 @@ export function SettingsDialogBody({
 			<div className="flex min-h-0 flex-1">
 				{/* Left nav — mono labels and theme-inherited decorative icons,
 					    active = bg-accent. */}
-				<nav
+				{(!compact || !mobileDetail) && <nav
 					aria-label={t("settings.dialog.sectionsLabel")}
 					data-testid="settings-nav"
-					className="flex min-h-0 w-48 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2"
+					className={
+						compact
+							? "flex min-h-0 w-full flex-col gap-0.5 overflow-y-auto p-3"
+							: "flex min-h-0 w-48 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2"
+					}
 				>
 					{navSections.map((s, index) => (
 						<div key={s.id} className="shrink-0">
@@ -400,20 +456,28 @@ export function SettingsDialogBody({
 								type="button"
 								data-testid={`settings-nav-${s.id}`}
 								aria-current={selected === s.id}
-								className={`flex w-full items-center gap-2 break-words rounded-sm px-3 py-1.5 text-left font-ui text-sm transition-colors ${
+								className={`flex w-full items-center gap-2.5 break-words rounded-sm px-3 text-left font-ui transition-colors ${
+									compact ? "py-3 text-base" : "py-1.5 text-sm"
+								} ${
 									selected === s.id
 										? "bg-accent text-foreground"
 										: "text-muted-foreground hover:bg-accent hover:text-foreground"
 								}`}
-								onClick={() => setActive(s.id)}
+								onClick={() => {
+									setActive(s.id);
+									if (compact) {
+										setMobileDetail(true);
+										contentRef.current?.scrollTo({ top: 0 });
+									}
+								}}
 							>
-								{s.icon && <s.icon aria-hidden="true" focusable="false" className="size-3.5 shrink-0" />}
+								{s.icon && <s.icon aria-hidden="true" focusable="false" className={compact ? "size-4 shrink-0" : "size-3.5 shrink-0"} />}
 								<span className="min-w-0">{s.label}</span>
 							</button>
 							{s.id === "plugins" && <hr className="my-2 border-border" />}
 						</div>
 					))}
-				</nav>
+				</nav>}
 
 				{/* Content column — one section at a time, this scrolls — and
 				    LOCKS while any MenuShell is open (owner ruling: no
@@ -421,7 +485,7 @@ export function SettingsDialogBody({
 				    open/close, the count keeps overlap honest). The lock
 				    intercepts wheel/touch instead of hiding the scrollbar —
 				    nothing may shift when the lock engages. */}
-				<div
+				{(!compact || mobileDetail) && <div
 					ref={contentRef}
 					className="min-w-0 flex-1 overflow-y-auto"
 					data-testid="settings-content"
@@ -536,7 +600,7 @@ export function SettingsDialogBody({
 							)}
 						</div>
 					)}
-				</div>
+				</div>}
 			</div>
 		</div>
 	);

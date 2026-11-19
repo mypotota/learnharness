@@ -50,14 +50,23 @@ public final class ServerRuntime {
     private static final long LOG_ROTATE_BYTES = 5 * 1024 * 1024;
 
     private static boolean started = false;
+    /** Sticky outcomes: an Activity recreated while the process lives (the
+     *  back-to-launcher-then-reopen path) must still hear the verdict —
+     *  otherwise its fresh splash never clears and the WebView never loads. */
+    private static volatile boolean ready = false;
+    private static volatile boolean failed = false;
 
     private ServerRuntime() {}
 
     /** Idempotent; extraction and boot run off the main thread. Exactly one
      *  of the callbacks fires, from the boot thread (caller re-posts to the
-     *  UI thread as needed). */
+     *  UI thread as needed). A later caller gets the remembered verdict. */
     public static synchronized void start(Context context, Runnable onReady, Runnable onFailure) {
-        if (started) return;
+        if (started) {
+            if (ready) onReady.run();
+            else if (failed) onFailure.run();
+            return;
+        }
         started = true;
         Context app = context.getApplicationContext();
         new Thread(() -> {
@@ -76,6 +85,7 @@ public final class ServerRuntime {
                     Log.e(TAG, "attempt " + attempt + ": could not spawn node", error);
                 }
                 if (process != null && awaitReady(process)) {
+                    ready = true;
                     onReady.run();
                     return;
                 }
@@ -86,6 +96,7 @@ public final class ServerRuntime {
                 sleep(RESTART_DELAY_MS);
             }
             Log.e(TAG, "server did not come up after " + MAX_ATTEMPTS + " attempts");
+            failed = true;
             onFailure.run();
         }, "lh-server-boot").start();
     }
@@ -149,6 +160,13 @@ public final class ServerRuntime {
         env.put("LH_DATA_DIR", new File(context.getFilesDir(), "data").getAbsolutePath());
         env.put("LH_AUTH_FILE", new File(context.getFilesDir(), "auth.json").getAbsolutePath());
         env.put("LD_LIBRARY_PATH", new File(root, "runtime/lib").getAbsolutePath());
+        // Termux node's OpenSSL has no trust store on Android (no /etc/ssl/
+        // certs), so every HTTPS provider call failed with
+        // SELF_SIGNED_CERT_IN_CHAIN — surfaced in the UI as "Connection
+        // error". The Mozilla bundle ships with the payload (see
+        // prepare-mobile-runtime.mjs) and this points node at it.
+        File caBundle = new File(root, "runtime/etc/tls/cert.pem");
+        if (caBundle.isFile()) env.put("NODE_EXTRA_CA_CERTS", caBundle.getAbsolutePath());
         // P3 seam: run_demo verification is served by the hidden-WebView
         // renderer (RenderService.java). Fixed port; changes together with it.
         env.put("LH_RENDER_SERVICE_URL", "http://127.0.0.1:" + RENDER_SERVICE_PORT + "/render");

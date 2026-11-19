@@ -9,6 +9,7 @@ import { ServerEventsProvider } from "@/components/server-events";
 import { AppearanceProvider } from "@/components/settings/appearance";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
 import UpdateBanner from "@/components/update-banner";
+import { SafeAreaSync } from "@/components/safe-area";
 import { PluginsProvider } from "@/components/plugins";
 import { readLocaleBoot, readThemeBoot } from "@/src/server";
 
@@ -44,6 +45,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 				 reads its wording through useT(), and a surface rendered
 				 without one falls back to English. */}
 			<I18nProvider initialLocale={locale} initialExplicit={explicit}>
+				{/* Android hands the system-bar insets to this component once the
+				    first route mounts (see SafeAreaSync). */}
+				<SafeAreaSync />
 				{/* The notification channel rides OUTSIDE everything: sidebar, dock,
 					 and pages all subscribe as the polls retire (push S3, 2026-10-02). */}
 				<ServerEventsProvider>

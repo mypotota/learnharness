@@ -318,7 +318,9 @@ export function AppearanceSection({
 						{t("settings.appearance.resetAll")}
 					</button>
 				</div>
-				<div className="grid grid-cols-2 gap-x-10 gap-y-2">
+				{/* One column on a phone: two 160px cells could not hold a label
+				    plus the hex input, so "强调色" wrapped to one glyph per line. */}
+				<div className="grid grid-cols-2 gap-x-10 gap-y-2 max-md:grid-cols-1 max-md:gap-x-0">
 					{THEME_COLOR_KEYS.map((key) => (
 						<ColorOverrideRow
 							key={key}

@@ -105,7 +105,7 @@ export function StatsBar({
 			// (so its transparent gradient area never blocks scrolling) — this row
 			// must re-enable events or every control on it is dead (the model-
 			// control wave caught this live: buttons rendered, clicks never landed).
-			className="pointer-events-auto relative flex items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground"
+			className="pointer-events-auto relative flex items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground max-md:gap-2 max-md:px-2"
 		>
 			{/* The summary button + its popover: the popover anchors to this
 			    wrapper, CENTERED over the button itself (owner, stats round 2)
@@ -127,20 +127,27 @@ export function StatsBar({
 				onClick={() => setOpen((o) => !o)}
 				aria-expanded={open}
 				data-testid="stats-summary"
-				className="flex items-center gap-1.5 tabular-nums transition-colors hover:text-foreground"
+				className="flex shrink-0 items-center gap-1.5 whitespace-nowrap tabular-nums transition-colors hover:text-foreground"
 			>
 				<span data-testid="stats-context">
 					{contextLabel}
 				</span>
-				<span aria-hidden>·</span>
-				<span data-testid="stats-cost">{costLabel}</span>
+				{/* The phone row is fully booked (stats + dictation + model +
+				    thinking): the inline cost wraps to a second line and steals
+				    the model pill's width. Compact keeps the one-line context
+				    measurement; the full cost stays in the detail popover. */}
+				<span aria-hidden className="max-md:hidden">·</span>
+				<span data-testid="stats-cost" className="max-md:hidden">{costLabel}</span>
 			</button>
 				{open && (
 					<div
 						ref={panelRef}
 						data-testid="stats-detail"
 						style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }}
-						className="absolute bottom-full left-1/2 mb-1.5 w-72 -translate-x-1/2 rounded-xl border bg-card p-3 text-xs shadow-xl"
+						// Centered on desktop; on a phone the button sits at the
+						// row's left edge, so centering pushed the 288px panel
+						// off-screen. Compact aligns the panel to the button.
+						className="absolute bottom-full left-1/2 mb-1.5 w-72 -translate-x-1/2 rounded-xl border bg-card p-3 text-xs shadow-xl max-md:left-0 max-md:translate-x-0"
 					>
 						<div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							{t("stats.title")}
@@ -204,7 +211,12 @@ export function StatsBar({
 			    meter expand into the row's free width; justify-center keeps the
 			    lone idle mic button visually centered. */}
 			{dictationSlot && (
-				<div className="flex min-w-0 flex-1 items-center justify-center">{dictationSlot}</div>
+				// flex-1 only where there is room to spare: on a phone the row
+				// is already fully booked, so an expanding slot collapsed to
+				// ~9px and the mic label was clipped mid-glyph. max-md:flex-none
+				// keeps the button at its natural width and lets the model pill
+				// truncate instead.
+				<div className="flex min-w-0 flex-1 items-center justify-center max-md:flex-none">{dictationSlot}</div>
 			)}
 			{/* The model + thinking control — one controller for the conversation
 			    agents (prober/teacher); the record's `turns` above still folds

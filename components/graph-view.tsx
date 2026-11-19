@@ -872,10 +872,11 @@ export function GraphChromeRow({
 							type="button"
 							onClick={onOpenChains}
 							data-testid="open-chain-table"
-							className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent"
+							aria-label={t("graph.chains")}
+							className="flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent max-md:px-2"
 						>
 							<ListTreeIcon className="size-3" />
-							{t("graph.chains")}
+							<span className="max-md:hidden">{t("graph.chains")}</span>
 						</button>
 					</Hint>
 				</div>

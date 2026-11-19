@@ -28,12 +28,15 @@ import { HostContentRootContext, HostRouteLifetimeProvider } from "@/components/
 import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
 import { InteractionLayersProvider, useInteractionLayers, useOptionalInteractionLayers } from "@/components/interaction-layers";
 import { englishT, useT } from "@/components/i18n/i18n-provider";
+import { isCompactViewport, useCompact } from "@/components/use-compact";
+import { registerNativeBack } from "@/components/native-back";
 
 /**
- * Toggleable sidebar — NOT a modal drawer: no backdrop, no focus theft. It
- * sits inline next to the content and can stay open while working in a
- * session. Open state persists across pages (provider lives in the root
- * layout) and across reloads (localStorage).
+ * Toggleable sidebar — on desktop it sits inline next to the content and can
+ * stay open while working in a session; on compact (phone) viewports it is a
+ * drawer over the content, closed by default. Open state persists across
+ * pages (provider lives in the root layout) and across desktop reloads
+ * (localStorage).
  */
 
 const STORAGE_KEY = "lh:sidebar-open";
@@ -101,9 +104,11 @@ declare global {
 	}
 }
 
-const SidebarContext = createContext<{ open: boolean; toggle: () => void }>({
+const SidebarContext = createContext<{ open: boolean; toggle: () => void; close: () => void; compact: boolean }>({
 	open: false,
 	toggle: () => {},
+	close: () => {},
+	compact: false,
 });
 
 export function useSidebar() {
@@ -123,6 +128,8 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [narrow, setNarrow] = useState(false);
 	const [mounted, setMounted] = useState(false);
+	const compact = useCompact();
+	const prevCompact = useRef<boolean | null>(null);
 
 	useEffect(() => {
 		// Electron shell detection (merged chrome, 2026-09-17): keys the
@@ -146,11 +153,30 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 		void window.lh?.getZoom?.().then(setZoomVar);
 
 		const stored = localStorage.getItem(STORAGE_KEY);
-		// Default: open (first run introduces the sidebar).
-		setOpen(stored === null ? true : stored === "1");
+		// Desktop default: open (first run introduces the sidebar). On a phone
+		// the sidebar is a drawer: always start closed, regardless of a stored
+		// desktop-era preference.
+		setOpen(isCompactViewport() ? false : stored === null ? true : stored === "1");
 		setMounted(true);
 		return () => off?.();
 	}, []);
+
+	// The viewport can cross the breakpoint (rotation, window resize): close
+	// the drawer when entering compact, restore the stored state when leaving.
+	useEffect(() => {
+		if (!mounted) return;
+		if (prevCompact.current === null) {
+			prevCompact.current = compact;
+			return;
+		}
+		if (prevCompact.current === compact) return;
+		prevCompact.current = compact;
+		if (compact) {
+			setOpen(false);
+		} else {
+			setOpen((localStorage.getItem(STORAGE_KEY) ?? "1") === "1");
+		}
+	}, [compact, mounted]);
 
 	// Narrow-window auto-close/auto-restore (see SIDEBAR_AUTOCLOSE note):
 	// fires only on actual resizes — a boolean compare, no layout work.
@@ -165,6 +191,12 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, []);
 
 	const toggle = useCallback(() => {
+		// The phone drawer is ephemeral: opening/closing never rewrites the
+		// desktop sidebar preference.
+		if (compact) {
+			setOpen((v) => !v);
+			return;
+		}
 		// Opening while narrow (auto-closed, or the user's own closed-at-
 		// narrow): ask the shell to widen to the threshold — the resize
 		// listener flips `narrow` and the sidebar appears. The preference
@@ -180,7 +212,12 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 			localStorage.setItem(STORAGE_KEY, v ? "0" : "1");
 			return !v;
 		});
-	}, [narrow, open]);
+	}, [compact, narrow, open]);
+
+	const close = useCallback(() => {
+		if (!compact) localStorage.setItem(STORAGE_KEY, "0");
+		setOpen(false);
+	}, [compact]);
 
 	// ⌘B: the global shortcut dispatches kbdEventForAction("toggle-sidebar")
 	// and the context answers on exactly that name — the shared spelling
@@ -196,9 +233,9 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, [toggle]);
 
 	return (
-		<SidebarContext.Provider value={{ open: open && !narrow, toggle }}>
+		<SidebarContext.Provider value={{ open: open && !narrow, toggle, close, compact }}>
 			{/* transitions gated on mount: no slide-in flash on page load */}
-			<div className={cn("flex h-dvh", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
+			<div className={cn("lh-safe-inset flex h-dvh overflow-x-clip", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
 		</SidebarContext.Provider>
 	);
 }
@@ -415,7 +452,7 @@ const KIND_FILTER_KEY = "lh:session-kind-filter";
 function SessionsSidebar() {
 	const t = useT();
 	const interactions = useInteractionLayers();
-	const { open, toggle } = useSidebar();
+	const { open, toggle, close, compact } = useSidebar();
 	const [chats, setChats] = useState<ChatListItem[] | null>(null);
 	const [query, setQuery] = useState("");
 	const [kindFilter, setKindFilter] = useState<SessionKindFilter>("all");
@@ -662,12 +699,45 @@ function SessionsSidebar() {
 		// freshness (S6) — no interval, nothing standing.
 	}, [open, pathname, refresh]);
 
+	// A drawer is a transient layer: navigating from it dismisses it.
+	useEffect(() => {
+		if (compact) close();
+	}, [pathname, compact, close]);
+
+	// Android back closes the drawer before it leaves the page.
+	useEffect(() => {
+		if (!compact || !open) return;
+		return registerNativeBack(() => {
+			close();
+			return true;
+		});
+	}, [compact, open, close]);
+
 	return (
-		<aside
-			className={cn("sidebar-motion shrink-0 overflow-hidden duration-200", open ? "w-72" : "w-0")}
-			aria-hidden={!open}
-		>
-			<div className="flex h-full w-72 flex-col border-r bg-background">
+		<>
+			{compact && open && (
+				<button
+					type="button"
+					aria-label={t("sidebar.closeSidebar")}
+					className="fixed inset-0 z-40 animate-in bg-background/60 backdrop-blur-sm fade-in-0"
+					onClick={close}
+				/>
+			)}
+			<aside
+				className={cn(
+					"sidebar-motion shrink-0 overflow-hidden duration-200",
+					compact
+						? cn(
+								"fixed inset-y-0 left-0 z-50 w-72 shadow-2xl transition-transform",
+								open ? "translate-x-0" : "-translate-x-full",
+							)
+						: open
+							? "w-72"
+							: "w-0",
+				)}
+				aria-hidden={!open}
+			>
+				<div className="lh-safe-inset flex h-full w-72 flex-col border-r bg-background">
 				{/* LH wordmark — the owner's header; close toggle sits at the edge.
 				    Merged chrome (2026-09-17): in Electron this band is the
 				    window's drag surface and starts after the traffic lights
@@ -691,6 +761,9 @@ function SessionsSidebar() {
 						<Link
 							href="/"
 							aria-label={t("sidebar.home")}
+							// The drawer closes on NAVIGATION, but tapping Home while
+							// already on "/" changes no path — dismiss it explicitly.
+							onClick={() => compact && close()}
 							className="lh-no-drag flex size-9 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
 						>
 							<LhMark className="size-6" />
@@ -957,6 +1030,7 @@ function SessionsSidebar() {
 					onDeleted={onDeleted}
 				/>
 			</aside>
+		</>
 	);
 }
 

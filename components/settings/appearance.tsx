@@ -211,6 +211,13 @@ export function AppearanceProvider({
 	const background = colors.background;
 	useEffect(() => {
 		window.lh?.setAppearance?.({ mode, background });
+		// Android shell: paint the status/navigation-bar strips with the app
+		// background and flip the system icon appearance (edge-to-edge).
+		(
+			window as Window & {
+				LhChrome?: { setTheme?: (mode: string, background: string) => void };
+			}
+		).LhChrome?.setTheme?.(mode, background);
 	}, [mode, background]);
 
 	const refreshThemes = useCallback(async () => {

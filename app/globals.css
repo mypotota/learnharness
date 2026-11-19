@@ -634,3 +634,22 @@ body {
 	outline: 1px solid var(--border);
 	border-radius: 0.25rem;
 }
+
+/* Android WebView safe area. The native shell draws edge-to-edge (the app
+   background reaches the screen edge) and reports the status-bar / gesture-bar
+   / cutout insets in CSS pixels; components/safe-area.tsx writes them here on
+   mount. Zero in the browser and Electron, so these insets are inert there. */
+:root {
+	--lh-safe-top: 0px;
+	--lh-safe-right: 0px;
+	--lh-safe-bottom: 0px;
+	--lh-safe-left: 0px;
+}
+
+.lh-safe-inset {
+	padding-top: var(--lh-safe-top);
+	padding-right: var(--lh-safe-right);
+	padding-bottom: var(--lh-safe-bottom);
+	padding-left: var(--lh-safe-left);
+}
+

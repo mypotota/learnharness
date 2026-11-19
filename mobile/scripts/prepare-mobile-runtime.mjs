@@ -33,7 +33,7 @@ const JNI_OUT = path.join(MOBILE, "android", "app", "build", "generated", "lh-jn
 const MIRROR = "https://mirrors.tuna.tsinghua.edu.cn/termux/apt/termux-main/";
 
 /** Termux packages: `nodejs-lts` is the runtime; the rest are its NEEDED libs. */
-const TERMUX_PACKAGES = ["nodejs-lts", "libc++", "libicu", "libsqlite", "openssl", "c-ares", "zlib"];
+const TERMUX_PACKAGES = ["nodejs-lts", "libc++", "libicu", "libsqlite", "openssl", "c-ares", "zlib", "ca-certificates"];
 
 /** NEEDED entries of the Termux node binary — exact sonames, so a mirror bump
  *  that drops one fails here instead of at runtime with a dlopen error. */
@@ -144,7 +144,8 @@ function resolveTermuxFiles() {
 function ensureNode() {
 	const nodeBin = path.join(CACHE, "node");
 	const libDir = path.join(CACHE, "lib");
-	if (exists(nodeBin) && exists(libDir)) return { nodeBin, libDir };
+	const caFile = path.join(CACHE, "cert.pem");
+	if (exists(nodeBin) && exists(libDir) && exists(caFile)) return { nodeBin, libDir, caFile };
 
 	const files = resolveTermuxFiles();
 	const usrLib = [];
@@ -155,6 +156,14 @@ function ensureNode() {
 		if (name === "nodejs-lts") {
 			fs.copyFileSync(path.join(found, "bin/node"), nodeBin);
 			fs.chmodSync(nodeBin, 0o755);
+		}
+		// Android has no /etc/ssl/certs, so Termux node's OpenSSL finds an
+		// empty trust store and every HTTPS call dies with
+		// SELF_SIGNED_CERT_IN_CHAIN ("Connection error" in the UI). Ship the
+		// Mozilla bundle and point NODE_EXTRA_CA_CERTS at it.
+		if (name === "ca-certificates") {
+			fs.mkdirSync(path.dirname(caFile), { recursive: true });
+			fs.copyFileSync(path.join(found, "etc/tls/cert.pem"), caFile);
 		}
 		usrLib.push(path.join(found, "lib"));
 	}
@@ -173,7 +182,8 @@ function ensureNode() {
 	}
 	const missing = NODE_LIBS.filter((lib) => !exists(path.join(libDir, lib)));
 	if (missing.length) throw new Error(`Termux payload is missing Node's shared libraries: ${missing.join(", ")}`);
-	return { nodeBin, libDir };
+	if (!exists(caFile)) throw new Error("Termux ca-certificates payload is missing etc/tls/cert.pem");
+	return { nodeBin, libDir, caFile };
 }
 
 function ensureAndroidNative() {
@@ -193,7 +203,33 @@ function ensureAndroidNative() {
 	return out;
 }
 
-function stageServer({ libDir, androidNative }) {
+/** Next externalizes server packages into `.next/node_modules` as symlinks.
+ *  `dereference: true` resolves the link, but a target that lives in a nested
+ *  `node_modules` (shiki under @streamdown/code) loses the sibling packages
+ *  its original location could resolve (@shikijs/*), so the copied module
+ *  throws ERR_MODULE_NOT_FOUND on device. Mirror those siblings into the
+ *  copy's own `node_modules`; hoisted targets (pdfjs-dist, puppeteer-core)
+ *  already resolve from the staged top level and are skipped. */
+function carryNestedDeps() {
+	const externalRoot = path.join(STANDALONE, ".next", "node_modules");
+	if (!exists(externalRoot)) return;
+	const hoisted = path.join(STANDALONE, "node_modules");
+	for (const entry of fs.readdirSync(externalRoot, { withFileTypes: true })) {
+		const link = path.join(externalRoot, entry.name);
+		if (!entry.isSymbolicLink() || !exists(link)) continue;
+		const target = fs.realpathSync(link);
+		const depsRoot = path.dirname(target);
+		if (depsRoot === hoisted || path.basename(depsRoot) !== "node_modules") continue;
+		const into = path.join(STAGE, ".next", "node_modules", entry.name, "node_modules");
+		for (const dep of fs.readdirSync(depsRoot)) {
+			if (dep === path.basename(target)) continue;
+			fs.cpSync(path.join(depsRoot, dep), path.join(into, dep), { recursive: true, dereference: true });
+		}
+		log(`carried nested deps for ${entry.name}: ${fs.readdirSync(into).join(", ")}`);
+	}
+}
+
+function stageServer({ libDir, caFile, androidNative }) {
 	rmrf(STAGE);
 	log("staging standalone tree");
 	fs.cpSync(STANDALONE, STAGE, {
@@ -206,10 +242,26 @@ function stageServer({ libDir, androidNative }) {
 			return !EXCLUDE.some((skip) => rel === skip || rel.startsWith(`${skip}${path.sep}`));
 		},
 	});
+	carryNestedDeps();
+	// Next's standalone output deliberately omits `.next/static` and `public`
+	// (the docs tell you to copy them in). scripts/build-server.mjs does that
+	// for the desktop bundle, but a mobile build that goes straight from
+	// `next build` would ship a stylesheet-less app — every /_next/static
+	// request 404s and the UI renders as bare document flow. Stage them here
+	// whenever the standalone tree does not already carry them.
+	for (const [from, into] of [
+		[path.join(ROOT, ".next", "static"), path.join(STAGE, ".next", "static")],
+		[path.join(ROOT, "public"), path.join(STAGE, "public")],
+	]) {
+		if (exists(into) || !exists(from)) continue;
+		log(`staging missing asset tree ${path.basename(from)}`);
+		fs.cpSync(from, into, { recursive: true, dereference: true });
+	}
 	for (const native of androidNative) {
 		fs.cpSync(native.dir, path.join(STAGE, "node_modules", native.into), { recursive: true, dereference: true });
 	}
 	fs.cpSync(libDir, path.join(STAGE, "runtime", "lib"), { recursive: true, dereference: true });
+	fs.cpSync(caFile, path.join(STAGE, "runtime", "etc", "tls", "cert.pem"), { dereference: true });
 }
 
 /** Deterministic-enough ZIP writer (deflate) — avoids depending on the host's `zip`. */
@@ -282,9 +334,9 @@ const main = () => {
 	if (!exists(path.join(STANDALONE, "server.js"))) {
 		throw new Error(`.next/standalone/server.js missing — run \`npm run build\` and \`node scripts/build-server.mjs\` in ${ROOT}`);
 	}
-	const { nodeBin, libDir } = ensureNode();
+	const { nodeBin, libDir, caFile } = ensureNode();
 	const androidNative = ensureAndroidNative();
-	stageServer({ libDir, androidNative });
+	stageServer({ libDir, caFile, androidNative });
 
 	const jniDir = path.join(JNI_OUT, "arm64-v8a");
 	fs.mkdirSync(jniDir, { recursive: true });

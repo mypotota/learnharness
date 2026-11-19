@@ -1,15 +1,23 @@
 package ai.learnharness.mobile;
 
+import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
+import android.webkit.WebView;
 import android.widget.FrameLayout;
 import android.widget.TextView;
-import android.window.OnBackInvokedCallback;
-import android.window.OnBackInvokedDispatcher;
+
+import androidx.activity.OnBackPressedCallback;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -24,9 +32,8 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
     private FrameLayout splash;
     private TextView splashError;
-    /** Created only on API 33+ — an inlined field initializer would touch an
-     *  API-33 class on every constructor path and crash below Tiramisu. */
-    private OnBackInvokedCallback backCallback;
+    /** System-bar / cutout insets in CSS pixels: top, right, bottom, left. */
+    private int[] safeArea = new int[]{0, 0, 0, 0};
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -43,13 +50,18 @@ public class MainActivity extends BridgeActivity {
                 () -> runOnUiThread(this::onServerReady),
                 () -> runOnUiThread(this::onServerFailed));
 
-        // Predictive back (API 33+, with the manifest flag) routes through the
-        // dispatcher; older versions keep the onBackPressed override below.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            backCallback = () -> handleBack();
-            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT, backCallback);
-        }
+        // Predictive back (the manifest opts in): androidx's dispatcher owns
+        // the gesture, and its fallback bypasses this Activity's
+        // onBackPressed override — a raw OnBackInvokedCallback registered
+        // beside it never ran (verified on Android 15). Register through the
+        // dispatcher instead; the async web/exit decision then lives in
+        // handleBack().
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBack();
+            }
+        });
     }
 
     @Override
@@ -60,21 +72,29 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onDestroy() {
         RenderService.stop();
-        if (backCallback != null) {
-            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
-        }
         super.onDestroy();
     }
 
-    /** In-app history first; only the root exits, like a native app. */
+    /** Web overlays first (drawer, settings), then in-app history; only the
+     *  root exits, like a native app. The JS check is async, so the native
+     *  history/exiting decision happens in its callback. */
     private void handleBack() {
         if (isFinishing() || isDestroyed()) return;
-        if (getBridge() != null && getBridge().getWebView() != null
-                && getBridge().getWebView().canGoBack()) {
-            getBridge().getWebView().goBack();
-        } else {
+        final WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView == null) {
             finish();
+            return;
         }
+        webView.evaluateJavascript(
+                "(function(){try{return window.lhHandleNativeBack&&window.lhHandleNativeBack()?'1':'0';}catch(e){return '0';}})()",
+                value -> {
+                    if ("\"1\"".equals(value)) return;
+                    if (webView.canGoBack()) {
+                        webView.goBack();
+                    } else {
+                        finish();
+                    }
+                });
     }
 
     /** Full-screen overlay matching the launch theme's window background. */
@@ -94,13 +114,83 @@ public class MainActivity extends BridgeActivity {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
 
-    /** The served desktop UI owns its layout: no pinch/double-tap zoom. */
+    /** The served desktop UI owns its layout: no pinch/double-tap zoom. The
+     *  WebView also carries the system-bar insets (the page draws the app
+     *  background behind them) and the theme bridge for bar icon contrast. */
     private void polishWebViewSettings() {
         if (getBridge() == null || getBridge().getWebView() == null) return;
-        WebSettings settings = getBridge().getWebView().getSettings();
+        WebView webView = getBridge().getWebView();
+        WebSettings settings = webView.getSettings();
         settings.setSupportZoom(false);
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
+        // Transparent until the web layer reports its background colour; the
+        // launch window background (splash colour) fills the inset strips.
+        webView.setBackgroundColor(Color.TRANSPARENT);
+        webView.addJavascriptInterface(new ChromeBridge(), "LhChrome");
+        if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            WebView.setWebContentsDebuggingEnabled(true);
+        }
+        // Edge-to-edge (forced from Android 15 on): the page paints behind the
+        // status and gesture bars so the app background runs to the screen
+        // edge. The bars therefore cover page chrome — the web layer cannot
+        // guess their size on Android — so the insets are handed over in CSS
+        // pixels and the page insets its own chrome with --lh-safe-*.
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        View content = findViewById(android.R.id.content);
+        ViewCompat.setOnApplyWindowInsetsListener(content, (view, insets) -> {
+            Insets bars = insets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            float density = getResources().getDisplayMetrics().density;
+            publishSafeArea(
+                    Math.round(bars.top / density),
+                    Math.round(bars.right / density),
+                    Math.round(bars.bottom / density),
+                    Math.round(bars.left / density));
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(content);
+    }
+
+    /** Hands the system-bar insets to the page (CSS px). The page pulls them
+     *  once on mount through getSafeArea() and this pushes later changes. */
+    private void publishSafeArea(int top, int right, int bottom, int left) {
+        if (top == safeArea[0] && right == safeArea[1] && bottom == safeArea[2] && left == safeArea[3]) return;
+        safeArea = new int[]{top, right, bottom, left};
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView == null) return;
+        webView.evaluateJavascript(
+                "window.LhApplySafeArea&&window.LhApplySafeArea('" + top + "," + right + "," + bottom + "," + left + "')",
+                null);
+    }
+
+    /** Called from the web appearance provider: paints the inset strips and
+     *  keeps the status/navigation icons readable against that colour. */
+    private final class ChromeBridge {
+        /** "top,right,bottom,left" in CSS pixels — pulled by the page on mount. */
+        @JavascriptInterface
+        public String getSafeArea() {
+            return safeArea[0] + "," + safeArea[1] + "," + safeArea[2] + "," + safeArea[3];
+        }
+
+        @JavascriptInterface
+        public void setTheme(String mode, String background) {
+            runOnUiThread(() -> {
+                WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+                if (webView != null && background != null) {
+                    try {
+                        webView.setBackgroundColor(Color.parseColor(background));
+                    } catch (IllegalArgumentException ignored) {
+                        // Keep the previous colour for an unexpected value.
+                    }
+                }
+                boolean dark = "dark".equals(mode);
+                WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(
+                        getWindow(), getWindow().getDecorView());
+                controller.setAppearanceLightStatusBars(!dark);
+                controller.setAppearanceLightNavigationBars(!dark);
+            });
+        }
     }
 
     private void onServerReady() {

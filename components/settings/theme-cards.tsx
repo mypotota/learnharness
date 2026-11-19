@@ -145,7 +145,9 @@ export function ThemeCards({
 					{t("settings.theme.export")}
 				</button>
 			</div>
-			<div className="grid grid-cols-3 gap-3">
+			{/* Two abreast on a phone: at 400px three cards forced every theme
+			    name into "Defa…"/"Grv…" and shrank the preview swatch row. */}
+			<div className="grid grid-cols-3 gap-3 max-md:grid-cols-2">
 				{themes.map((theme) => {
 					const selected = theme.id === active.id;
 					return (
