@@ -10,5 +10,6 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(LocalProxyPlugin.class);
         registerPlugin(SecureStorePlugin.class);
         super.onCreate(savedInstanceState);
+        NodeRuntime.start(getApplicationContext());
     }
 }

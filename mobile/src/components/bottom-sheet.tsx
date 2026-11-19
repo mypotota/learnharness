@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { CheckIcon, XIcon } from "lucide-react";
 import { useT } from "../platform/i18n-provider";
+import { pushBackHandler } from "../platform/back";
 import { cn } from "@/lib/utils";
 
 /** A modern bottom sheet: rounded top, drag handle, slide-up motion and the
@@ -42,6 +43,15 @@ export function BottomSheet({
 		};
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
+	}, [open, onClose]);
+
+	// The Android back gesture closes the topmost sheet before it navigates.
+	useEffect(() => {
+		if (!open) return;
+		return pushBackHandler(() => {
+			onClose();
+			return true;
+		});
 	}, [open, onClose]);
 
 	return (

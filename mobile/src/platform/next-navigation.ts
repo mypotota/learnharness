@@ -6,6 +6,11 @@ import { useSyncExternalStore } from "react";
 
 const listeners = new Set<() => void>();
 
+/** How many in-app pushes sit above the entry the app booted on. The browser
+ *  does not expose this (history.length never shrinks), so the router counts
+ *  it; the Android back gesture uses it to decide "go back" vs "minimize". */
+let depth = 0;
+
 function emit() {
 	for (const listener of listeners) listener();
 }
@@ -13,12 +18,23 @@ function emit() {
 export function navigate(to: string, replace = false) {
 	if (typeof window === "undefined") return;
 	if (replace) window.history.replaceState(null, "", to);
-	else window.history.pushState(null, "", to);
+	else {
+		window.history.pushState(null, "", to);
+		depth += 1;
+	}
 	emit();
 }
 
+/** Whether a back gesture has an in-app entry to return to. */
+export function canGoBack(): boolean {
+	return depth > 0;
+}
+
 if (typeof window !== "undefined") {
-	window.addEventListener("popstate", emit);
+	window.addEventListener("popstate", () => {
+		depth = Math.max(0, depth - 1);
+		emit();
+	});
 }
 
 function subscribe(listener: () => void) {

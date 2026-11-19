@@ -179,22 +179,19 @@ export function ChatPage({ sessionId }: { sessionId: string }) {
 						))}
 
 						{busy || streamingText ? (
-							<div className="flex gap-2.5">
-								<LhMark className="mt-0.5 size-5 shrink-0 opacity-80" />
-								<div className="min-w-0 flex-1">
-									{thinkingText ? (
-										<div className="mb-2 whitespace-pre-wrap break-words rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2 text-xs leading-relaxed text-muted-foreground">
-											{thinkingText}
-										</div>
-									) : null}
-									{streamingText ? (
-										<div className="font-prose text-(length:--lh-prose-size) leading-relaxed">
-											<Markdown text={streamingText} />
-										</div>
-									) : pending ? null : (
-										<p className="text-sm text-muted-foreground">{strings.thinking}</p>
-									)}
-								</div>
+							<div className="min-w-0">
+								{thinkingText ? (
+									<div className="mb-2 whitespace-pre-wrap break-words rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2 text-xs leading-relaxed text-muted-foreground">
+										{thinkingText}
+									</div>
+								) : null}
+								{streamingText ? (
+									<div className="font-prose text-(length:--lh-prose-size) leading-relaxed">
+										<Markdown text={streamingText} />
+									</div>
+								) : pending ? null : (
+									<p className="text-sm text-muted-foreground">{strings.thinking}</p>
+								)}
 							</div>
 						) : null}
 
@@ -304,60 +301,57 @@ function TranscriptMessage({
 	const blocks = message.content;
 
 	return (
-		<div className="flex gap-2.5">
-			<LhMark className="mt-0.5 size-5 shrink-0 opacity-80" />
-			<div className="flex min-w-0 flex-1 flex-col gap-2.5">
-				{blocks.map((block, index) => {
-					if (block.type === "text") {
-						if (!block.text.trim()) return null;
+		<div className="flex min-w-0 flex-col gap-2.5">
+			{blocks.map((block, index) => {
+				if (block.type === "text") {
+					if (!block.text.trim()) return null;
+					return (
+						<div key={`text-${index}`} className="font-prose text-(length:--lh-prose-size) leading-relaxed">
+							<Markdown text={block.text} />
+						</div>
+					);
+				}
+				if (block.type !== "toolCall") return null;
+				const call = block;
+				const input = (call.arguments ?? {}) as Record<string, unknown>;
+				const answered = answers[call.id];
+				const result = results.get(call.id);
+
+				if (isQuestionTool(call.name)) {
+					if (answered) return <AnsweredQuestion key={call.id} tool={call.name} input={input} answer={answered} />;
+					if (call.id === pendingCallId) {
 						return (
-							<div key={`text-${index}`} className="font-prose text-(length:--lh-prose-size) leading-relaxed">
-								<Markdown text={block.text} />
-							</div>
+							<QuestionCard
+								key={call.id}
+								toolCallId={call.id}
+								tool={call.name}
+								input={input}
+								onSubmit={onSubmit(call.id, call.name)}
+								onDismiss={onDismiss(call.id, call.name)}
+							/>
 						);
 					}
-					if (block.type !== "toolCall") return null;
-					const call = block;
-					const input = (call.arguments ?? {}) as Record<string, unknown>;
-					const answered = answers[call.id];
-					const result = results.get(call.id);
-
-					if (isQuestionTool(call.name)) {
-						if (answered) return <AnsweredQuestion key={call.id} tool={call.name} input={input} answer={answered} />;
-						if (call.id === pendingCallId) {
-							return (
-								<QuestionCard
-									key={call.id}
-									toolCallId={call.id}
-									tool={call.name}
-									input={input}
-									onSubmit={onSubmit(call.id, call.name)}
-									onDismiss={onDismiss(call.id, call.name)}
-								/>
-							);
-						}
-						return null;
-					}
-
-					if (call.name === "plan_init") {
-						const tree = (result?.details as { tree?: Parameters<typeof PlanCard>[0]["tree"] } | undefined)?.tree;
-						if (tree) return <PlanCard key={call.id} tree={tree} messages={messages} callId={call.id} />;
-						return null;
-					}
-
-					if (call.name === "probe_done") return <ProbeAssessmentCard key={call.id} input={input} />;
-
-					if (call.name === "send_to_user" && typeof input.message === "string") {
-						return (
-							<div key={call.id} className="font-prose text-(length:--lh-prose-size) leading-relaxed">
-								<Markdown text={input.message} />
-							</div>
-						);
-					}
-
 					return null;
-				})}
-			</div>
+				}
+
+				if (call.name === "plan_init") {
+					const tree = (result?.details as { tree?: Parameters<typeof PlanCard>[0]["tree"] } | undefined)?.tree;
+					if (tree) return <PlanCard key={call.id} tree={tree} messages={messages} callId={call.id} />;
+					return null;
+				}
+
+				if (call.name === "probe_done") return <ProbeAssessmentCard key={call.id} input={input} />;
+
+				if (call.name === "send_to_user" && typeof input.message === "string") {
+					return (
+						<div key={call.id} className="font-prose text-(length:--lh-prose-size) leading-relaxed">
+							<Markdown text={input.message} />
+						</div>
+					);
+				}
+
+				return null;
+			})}
 		</div>
 	);
 }

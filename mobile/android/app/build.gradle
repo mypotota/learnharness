@@ -3,6 +3,7 @@ apply plugin: 'com.android.application'
 android {
     namespace "ai.learnharness.mobile"
     compileSdk rootProject.ext.compileSdkVersion
+    ndkVersion "27.0.12077973"
     defaultConfig {
         applicationId "ai.learnharness.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -10,6 +11,14 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters "arm64-v8a", "x86_64"
+        }
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
@@ -22,7 +31,48 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.22.1"
+        }
+    }
+    sourceSets {
+        main {
+            assets.srcDirs += ["$buildDir/generated/node-assets"]
+        }
+    }
 }
+
+// The Node runtime lives in mobile/node-runtime so it can be read and tested
+// like normal source; Gradle copies it into the APK assets at build time.
+tasks.register("syncNodeRuntime", Copy) {
+    from rootProject.file("../node-runtime")
+    into new File(buildDir, "generated/node-assets/nodejs-project")
+    exclude "node_modules/**", "package-lock.json", ".DS_Store", "data/**"
+}
+
+// Plugin packages ride along as assets: core plugins from the repository root,
+// community plugins as their built dist/ trees. The Node host extracts them on
+// first launch and owns enable/disable state at runtime.
+tasks.register("syncCorePlugins", Copy) {
+    from rootProject.file("../../core-plugins")
+    into new File(buildDir, "generated/node-assets/nodejs-project/plugins/core")
+    exclude ".DS_Store", "**/node_modules/**", "**/data/**"
+}
+tasks.register("syncCommunityPlugins", Copy) {
+    into new File(buildDir, "generated/node-assets/nodejs-project/plugins/community")
+    rootProject.file("../../plugins").listFiles()?.each { dir ->
+        if (new File(dir, "dist/manifest.json").exists()) {
+            from(new File(dir, "dist")) {
+                into(dir.name)
+            }
+        }
+    }
+}
+preBuild.dependsOn(tasks.named("syncNodeRuntime"))
+preBuild.dependsOn(tasks.named("syncCorePlugins"))
+preBuild.dependsOn(tasks.named("syncCommunityPlugins"))
 
 repositories {
     flatDir{
