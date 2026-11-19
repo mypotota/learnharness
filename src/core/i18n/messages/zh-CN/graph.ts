@@ -72,4 +72,6 @@ export const graph = {
 	teachSessionsCount: "{count, plural, other {# 个教学会话}}",
 	practiceSessionsCount: "{count, plural, other {# 个练习会话}}",
 	notesCount: "{count, plural, other {# 条导入笔记}}",
+	saveSourcesFailed: "无法保存来源整理。",
+	deleteSourcesFailed: "无法删除来源。",
 } satisfies Translated<typeof EN_GRAPH>;

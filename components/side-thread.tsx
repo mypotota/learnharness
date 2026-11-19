@@ -165,8 +165,8 @@ export function SideThreadBody({ state, chatId, draft, readDraft, dictation, onD
 					{dictation && <div className="absolute right-1 bottom-1 flex h-7 items-center gap-1">
 						{dictation.phase === "recording" && <SideInputMeter levelRef={dictation.levelRef} />}
 						<button type="button" data-testid="side-dictation-toggle"
-						aria-label={dictation.active ? "Stop side dictation" : "Start side dictation"} aria-pressed={dictation.active}
-						title={dictation.error ?? (dictation.active ? "Stop side dictation" : "Dictate side question")}
+						aria-label={dictation.active ? t("sideThread.stopSideDictation") : t("sideThread.startSideDictation")} aria-pressed={dictation.active}
+						title={dictation.error ?? (dictation.active ? t("sideThread.stopSideDictation") : t("sideThread.dictateSideQuestion"))}
 						disabled={dictation.blocked || dictation.phase === "stopping"} onClick={dictation.toggle}
 						className={`flex size-7 items-center justify-center rounded-md transition-colors disabled:opacity-40 ${dictation.active ? "bg-error/15 text-error" : "text-muted-foreground hover:bg-accent hover:text-foreground"}`}>
 						<Mic aria-hidden="true" className="size-3.5" />

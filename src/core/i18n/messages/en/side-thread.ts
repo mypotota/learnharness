@@ -26,4 +26,9 @@ export const sideThread = {
 	showQuote: "Show the quoted tutor text",
 	answering: "Answering",
 	stopped: "Stopped",
+	openHistory: "Open side conversation",
+	askNew: "Ask a side question",
+	startSideDictation: "Start side dictation",
+	stopSideDictation: "Stop side dictation",
+	dictateSideQuestion: "Dictate side question",
 } as const;

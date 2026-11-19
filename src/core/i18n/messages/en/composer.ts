@@ -33,4 +33,7 @@ export const composer = {
 	stopDictation: "Stop dictation",
 	stopDictationEsc: "Stop dictation (Esc)",
 	dictationFailed: "Dictation failed: {error}",
+	dictationAppendFailed: "Dictation transcript could not be applied",
+	dictationLanguageUnavailable: "Dictation language unavailable",
+	microphonePermissionDenied: "Microphone permission denied",
 } as const;

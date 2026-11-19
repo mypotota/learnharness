@@ -74,4 +74,6 @@ export const graph = {
 	teachSessionsCount: "{count, plural, one {# teaching session} other {# teaching sessions}}",
 	practiceSessionsCount: "{count, plural, one {# practice session} other {# practice sessions}}",
 	notesCount: "{count, plural, one {# imported note} other {# imported notes}}",
+	saveSourcesFailed: "Could not save source organization.",
+	deleteSourcesFailed: "Could not delete sources.",
 } as const;

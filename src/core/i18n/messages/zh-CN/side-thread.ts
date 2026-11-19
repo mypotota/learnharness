@@ -25,4 +25,9 @@ export const sideThread = {
 	showQuote: "显示引用的讲解原文",
 	answering: "正在作答",
 	stopped: "已停止",
+	openHistory: "打开侧边会话",
+	askNew: "发起侧边提问",
+	startSideDictation: "开始侧边听写",
+	stopSideDictation: "停止侧边听写",
+	dictateSideQuestion: "听写侧边提问",
 } satisfies Translated<typeof EN_SIDE_THREAD>;

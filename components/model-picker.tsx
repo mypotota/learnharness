@@ -322,10 +322,10 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 						onPick={pickModel}
 						footer={
 							catalog && catalog.models.length === 0
-								? "No models — add a provider key in Keys"
+								? t("settings.agent.noModelsHint")
 								: chatId
-									? "This session's model"
-									: "Strong tier — the default for new sessions"
+									? t("settings.agent.thisSessionModel")
+									: t("settings.agent.strongTierHint")
 						}
 					/>
 				</MenuShell>
@@ -342,8 +342,8 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 						levels={catalog ? levels : []}
 						effectiveLevel={effectiveLevel}
 						onPick={(level) => apply(effectiveProvider ?? "", effectiveId ?? "", level as ThinkingLevel)}
-						empty={catalog ? (effectiveId ? `${prettyModel(effectiveId)} has no thinking levels.` : "Pick a model first.") : "Loading…"}
-						footer="Levels this model actually supports"
+						empty={catalog ? (effectiveId ? t("settings.agent.thinkingNone", { model: prettyModel(effectiveId) }) : t("settings.agent.pickModelFirst")) : t("common.loading")}
+						footer={t("settings.agent.thinkingFooter")}
 					/>
 					{error && <div className="mt-1 text-destructive">{error}</div>}
 				</MenuShell>

@@ -704,6 +704,7 @@ export function ChainTableOverlay({
 	onSelectionChange?: (next: ReadonlySet<string>) => void;
 }) {
 	const [query, setQuery] = useState("");
+	const t = useT();
 	const [sort, setSort] = useState<ChainSort>({ col: "name", dir: 1 });
 	const [internalSelection, setInternalSelection] = useState<ReadonlySet<string>>(() => new Set());
 	const [expandedClusters, setExpandedClusters] = useState<ReadonlySet<string>>(() => new Set());
@@ -760,7 +761,7 @@ export function ChainTableOverlay({
 			try {
 				const response = await fetch("/api/graph/sources", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(action) });
 				const body = await response.json();
-				if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Could not save source organization.");
+				if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : t("graph.saveSourcesFailed"));
 				if (opening === directoryOpening.current) {
 					requestVersion.current++;
 					setDirectory(body as SourceDirectory); setDirectoryPending(false); setDirectoryFailure("");
@@ -875,7 +876,7 @@ export function ChainTableOverlay({
 							const response = await fetch("/api/graph/sources", { method: "DELETE", headers: { "Content-Type": "application/json" },
 								body: JSON.stringify({ sourceIds: deletion?.sources.map((s) => s.id) ?? [], folderIds: deletion?.folders.map((f) => f.id) ?? [], deleteSessions }) });
 							const body = await response.json();
-							if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : "Could not delete sources.");
+							if (!response.ok) throw new Error(typeof body.error === "string" ? body.error : t("graph.deleteSourcesFailed"));
 							graphRevision = body.graphRevision;
 							if (opening === directoryOpening.current) {
 								requestVersion.current++; setDirectory(body as SourceDirectory); setDirectoryPending(false); setDirectoryFailure("");

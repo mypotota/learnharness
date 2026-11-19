@@ -32,4 +32,7 @@ export const composer = {
 	stopDictation: "停止听写",
 	stopDictationEsc: "停止听写 (Esc)",
 	dictationFailed: "听写失败：{error}",
+	dictationAppendFailed: "无法应用听写记录",
+	dictationLanguageUnavailable: "听写语言不可用",
+	microphonePermissionDenied: "麦克风权限被拒绝",
 } satisfies Translated<typeof EN_COMPOSER>;
