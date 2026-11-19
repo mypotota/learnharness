@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { execSync } from "node:child_process";
+import * as path from "node:path";
 import ts from "typescript";
-import { EN_MESSAGES } from "/Users/zhao/Desktop/project/learnharness/src/core/i18n/messages/index.ts";
+import { EN_MESSAGES } from "./src/core/i18n/messages/index.ts";
+
+const REPO_ROOT = path.resolve(import.meta.dirname);
 
 const TEXT_PROPS = new Set([
 	"label", "title", "placeholder", "aria-label", "alt", "description", "hint",
@@ -19,11 +22,11 @@ function flatten(value: unknown, prefix = ""): Record<string, string> {
 }
 const en = flatten(EN_MESSAGES);
 const values = Object.values(en).map(v => v.replace(/\s+/g," ").trim());
-const files = execSync("git diff --name-only HEAD -- components/settings components/i18n", {cwd:"/Users/zhao/Desktop/project/learnharness"}).toString().trim().split("\n").filter(f=>f.endsWith(".tsx")||f.endsWith(".ts"));
+const files = execSync("git diff --name-only HEAD -- components/settings components/i18n", {cwd: REPO_ROOT}).toString().trim().split("\n").filter(f=>f.endsWith(".tsx")||f.endsWith(".ts"));
 
 for (const file of files) {
 	let text: string;
-	try { text = execSync(`git show HEAD:${file}`, {cwd:"/Users/zhao/Desktop/project/learnharness"}).toString(); } catch { continue; }
+	try { text = execSync(`git show HEAD:${file}`, {cwd: REPO_ROOT}).toString(); } catch { continue; }
 	const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith(".tsx")?ts.ScriptKind.TSX:ts.ScriptKind.TS);
 	const found = new Set<string>();
 	const visit = (node: ts.Node) => {

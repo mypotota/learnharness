@@ -4,4 +4,5 @@
     <string name="title_activity_main">LearnHarness</string>
     <string name="package_name">ai.learnharness.mobile</string>
     <string name="custom_url_scheme">ai.learnharness.mobile</string>
+    <string name="startup_failure">LearnHarness could not start. Its log is at Android/data/ai.learnharness.mobile/files/logs/server.log.</string>
 </resources>

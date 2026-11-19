@@ -613,18 +613,92 @@ async function renderPdfPages(
 	}
 }
 
+// ─── Remote render service (the Android port's runDemo seam) ─────────────────
+// The mobile app runs this server inside a WebView-less Node process on the
+// phone; the Android shell hosts a hidden 1×1 WebView exposing `POST /render`
+// (see mobile/android RenderService.java). When LH_RENDER_SERVICE_URL points
+// at it, runDemo round-trips over HTTP instead of spawning this app's browser
+// helper — no Electron, no system Chrome on the phone. The desktop path below
+// is untouched when the variable is unset.
+
+/** Per-call read (not module load) so tests can flip the env mid-process. */
+export function renderServiceUrl(): string | null {
+	const url = process.env.LH_RENDER_SERVICE_URL?.trim();
+	return url ? url : null;
+}
+
+const REMOTE_RENDER_TIMEOUT_MS = 90_000;
+
+/** Coerce an array-valued field into a string[] (a misbehaving service must
+ *  degrade to "no errors recorded", never crash the caller). */
+function remoteStringArray(value: unknown): string[] {
+	return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+}
+
+/** Validate the service's payload into a DemoRunResult; `ok` falls back to the
+ *  same derived form runDemoOnPage uses when the service omits it. */
+function remoteDemoRunResult(payload: unknown): DemoRunResult {
+	const record = (typeof payload === "object" && payload !== null ? payload : {}) as Record<string, unknown>;
+	const consoleErrors = remoteStringArray(record.consoleErrors);
+	const pageErrors = remoteStringArray(record.pageErrors);
+	const failedRequests = remoteStringArray(record.failedRequests);
+	const clean = consoleErrors.length === 0 && pageErrors.length === 0 && failedRequests.length === 0;
+	return {
+		consoleErrors,
+		pageErrors,
+		failedRequests,
+		...(record.probeResult !== undefined ? { probeResult: record.probeResult } : {}),
+		ok: typeof record.ok === "boolean" ? record.ok : clean,
+	};
+}
+
+async function runDemoViaRenderService(html: string, opts: RunDemoOptions): Promise<DemoRunResult> {
+	const url = renderServiceUrl();
+	if (!url) return runDemo(html, opts); // env flipped mid-flight — desktop path
+	let response: Response;
+	try {
+		response = await fetch(url, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				html,
+				...(opts.settleMs !== undefined ? { settleMs: opts.settleMs } : {}),
+				...(opts.probe !== undefined ? { probe: opts.probe } : {}),
+			}),
+			signal: AbortSignal.timeout(REMOTE_RENDER_TIMEOUT_MS),
+		});
+	} catch (error) {
+		throw new Error(`render service unreachable at ${url}: ${error instanceof Error ? error.message : String(error)}`);
+	}
+	if (!response.ok) throw new Error(`render service returned HTTP ${response.status}`);
+	let payload: unknown;
+	try {
+		payload = await response.json();
+	} catch {
+		throw new Error("render service returned an invalid JSON body");
+	}
+	if (typeof payload === "object" && payload !== null && "error" in payload && typeof (payload as { error: unknown }).error === "string") {
+		throw new Error(`render service: ${(payload as { error: string }).error}`);
+	}
+	return remoteDemoRunResult(payload);
+}
+
 // ─── the real API ────────────────────────────────────────────────────────────
 
 export const realHeadless: HeadlessApi = {
 	available() {
-		// The helper binary exists by construction in the packaged app; in dev
-		// it resolves via the electron package. System Chrome widens coverage.
-		return browserServiceBinary() !== null || resolveChromeExecutablePath() !== null;
+		// Remote render service first (Android); otherwise the helper binary
+		// exists by construction in the packaged app and in dev resolves via
+		// the electron package. System Chrome widens coverage.
+		return renderServiceUrl() !== null || browserServiceBinary() !== null || resolveChromeExecutablePath() !== null;
 	},
 	unavailableReason() {
+		if (renderServiceUrl() !== null) return null;
 		return browserServiceBinary() === null && resolveChromeExecutablePath() === null ? NO_CHROME_MESSAGE : null;
 	},
-	runDemo,
+	// LH_RENDER_SERVICE_URL selects the phone's hidden-WebView renderer; the
+	// desktop keeps its helper/Chrome path verbatim.
+	runDemo: (html, opts) => (renderServiceUrl() !== null ? runDemoViaRenderService(html, opts ?? {}) : runDemo(html, opts)),
 	renderSvg,
 	renderPdfPages,
 };
