@@ -2,11 +2,12 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import { CheckIcon, ChevronDownIcon, ChevronLeftIcon, SearchIcon } from "lucide-react";
 import { useI18n } from "../platform/i18n-provider";
 import { MOBILE_STRINGS } from "../strings";
-import { BottomSheet } from "./bottom-sheet";
+import { BottomSheet, SheetOption } from "./bottom-sheet";
 import { cn } from "@/lib/utils";
 import {
 	catalog,
 	customConfigValue,
+	defaultThinkingLevel,
 	discoverCustomModels,
 	findModel,
 	providerLabel,
@@ -17,13 +18,14 @@ import {
 	setProviderKey,
 	setSelectedModel,
 	subscribeModels,
+	supportedLevelsFor,
 	modelsVersion,
 	type CatalogModel,
 	type CustomProviderConfig,
 	type ProviderRow,
 } from "../engine/registry";
 
-type Sheet = null | "providers" | "models";
+type Sheet = null | "providers" | "models" | "thinking";
 
 function SearchField({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
 	return (
@@ -140,6 +142,14 @@ export function ModelSettingsSection() {
 		return sorted.filter((row) => row.label.toLowerCase().includes(query) || row.id.toLowerCase().includes(query));
 	}, [rows, providerQuery]);
 
+	// The desktop's semantics (components/thinking-default.ts): the stored
+	// level wins; an unset level DISPLAYS the default-order resolution the
+	// engine would run, so the picker shows the truth without writing it.
+	const levels = selection ? supportedLevelsFor(selection.provider, selection.id) : [];
+	const effectiveLevel = selection
+		? selection.thinkingLevel ?? (selected ? defaultThinkingLevel(selected) : undefined)
+		: undefined;
+
 	const closeProviders = () => {
 		setSheet(null);
 		setProviderId(null);
@@ -165,6 +175,18 @@ export function ModelSettingsSection() {
 					<div className="border-t border-border/60">
 						<button
 							type="button"
+							onClick={() => setSheet("thinking")}
+							disabled={!selection || levels.length === 0}
+							className="flex min-h-14 w-full items-center gap-3 px-3.5 py-2 text-left active:bg-accent disabled:opacity-50"
+						>
+							<span className="min-w-0 flex-1 font-prose text-(length:--lh-prose-size)">{strings.thinkingDepth}</span>
+							<span className="text-sm text-muted-foreground">{effectiveLevel ?? "—"}</span>
+							<ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
+						</button>
+					</div>
+					<div className="border-t border-border/60">
+						<button
+							type="button"
 							onClick={() => {
 								setProviderId(null);
 								setSheet("providers");
@@ -178,6 +200,7 @@ export function ModelSettingsSection() {
 					</div>
 					<div className="border-t border-border/60 px-3.5 py-3">
 						<p className="text-xs leading-relaxed text-muted-foreground">{strings.modelsDescription}</p>
+						<p className="mt-1 text-xs leading-relaxed text-muted-foreground">{strings.thinkingDepthHint}</p>
 					</div>
 				</div>
 			</section>
@@ -246,6 +269,25 @@ export function ModelSettingsSection() {
 								setSelectedModel({ provider: model.provider, id: model.id });
 								setSheet(null);
 								setModelQuery("");
+							}}
+						/>
+					))
+				)}
+			</BottomSheet>
+
+			<BottomSheet open={sheet === "thinking"} onClose={() => setSheet(null)} title={strings.thinkingDepth}>
+				{levels.length === 0 ? (
+					<p className="px-3 py-6 text-center text-sm text-muted-foreground">{strings.noModel}</p>
+				) : (
+					levels.map((level) => (
+						<SheetOption
+							key={level}
+							label={level}
+							selected={effectiveLevel === level}
+							onClick={() => {
+								if (!selection) return;
+								setSelectedModel({ provider: selection.provider, id: selection.id, thinkingLevel: level });
+								setSheet(null);
 							}}
 						/>
 					))

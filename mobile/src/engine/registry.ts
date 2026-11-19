@@ -435,6 +435,17 @@ export function findModel(ref: ModelRef): Model<Api> | undefined {
 	return models.getModel(ref.provider, ref.id);
 }
 
+/** The pi collection the agent loop streams through. */
+export function modelsEngine(): Models {
+	return engine();
+}
+
+/** Supported thinking levels for a catalog row (the picker's source). */
+export function supportedLevelsFor(provider: string, id: string): ModelThinkingLevel[] {
+	const model = models?.getModel(provider, id);
+	return model ? getSupportedThinkingLevels(model) : [];
+}
+
 export function selectedModel(): ModelRef | null {
 	return selection;
 }

@@ -20,6 +20,9 @@ export default defineConfig({
 			{ find: "react-dom", replacement: path.join(rootModules, "react-dom") },
 			{ find: "next/link", replacement: path.join(here, "src/platform/next-link.tsx") },
 			{ find: "next/navigation", replacement: path.join(here, "src/platform/next-navigation.ts") },
+			// The desktop core barrel exports coverage.ts, which imports node:crypto;
+			// the mobile app never runs extraction (see the shim's header).
+			{ find: "node:crypto", replacement: path.join(here, "src/platform/node-crypto-shim.ts") },
 		],
 		dedupe: ["react", "react-dom"],
 	},

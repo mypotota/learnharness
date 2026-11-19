@@ -7,6 +7,7 @@ import { useI18n, useLocaleControl, useT } from "../platform/i18n-provider";
 import { persistAppearance } from "../appearance-boot";
 import { BottomSheet, SheetOption } from "../components/bottom-sheet";
 import { ModelSettingsSection } from "../components/model-settings";
+import { setQuestionMechanic, useQuestionMechanic } from "../engine/preferences";
 import { MOBILE_STRINGS } from "../strings";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -49,9 +50,11 @@ export function SettingsPage() {
 	const strings = MOBILE_STRINGS[locale];
 	const { locale: current, explicit, setExplicit } = useLocaleControl();
 	const { activeTheme, delta, themes, onAppearanceChange } = useAppearance();
-	const [sheet, setSheet] = useState<null | "language" | "theme">(null);
+	const mechanic = useQuestionMechanic();
+	const [sheet, setSheet] = useState<null | "language" | "theme" | "mechanic">(null);
 
 	const effectiveLocale = explicit ?? current;
+	const mechanicLabel = mechanic === "free" ? strings.mechanicFree : strings.mechanicChoice;
 
 	return (
 		<div className="lh-scroll h-full overflow-y-auto px-4 pb-8 pt-4">
@@ -72,6 +75,12 @@ export function SettingsPage() {
 			</Section>
 
 			<ModelSettingsSection />
+
+			<Section title={strings.questionMechanic}>
+				<Row label={strings.questionMechanicHint}>
+					<PickerValue value={mechanicLabel} label={strings.questionMechanic} onClick={() => setSheet("mechanic")} />
+				</Row>
+			</Section>
 
 			<Section title={strings.about}>
 				<Row label={strings.version}>
@@ -112,6 +121,20 @@ export function SettingsPage() {
 							const next = { ...delta, theme: theme.id };
 							onAppearanceChange(next);
 							persistAppearance(next);
+							setSheet(null);
+						}}
+					/>
+				))}
+			</BottomSheet>
+
+			<BottomSheet open={sheet === "mechanic"} onClose={() => setSheet(null)} title={strings.questionMechanic}>
+				{(["choice", "free"] as const).map((value) => (
+					<SheetOption
+						key={value}
+						label={value === "free" ? strings.mechanicFree : strings.mechanicChoice}
+						selected={mechanic === value}
+						onClick={() => {
+							setQuestionMechanic(value);
 							setSheet(null);
 						}}
 					/>
