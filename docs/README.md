@@ -16,6 +16,7 @@
 - [Prompt composition](../src/agent/prompts/README.md) — source fragments and user overrides.
 - [Tool-content recovery](tool-content-recovery.md) — display-only recovery of model-authored escaping defects.
 - [Desktop builds and releases](desktop-release.md) — packaging, release gates, and updates.
+- [Android port](mobile-android-port.md) — the embedded Node server, the payload build, and what remains.
 
 ## Teaching method
 
