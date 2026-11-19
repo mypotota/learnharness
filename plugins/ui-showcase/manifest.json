@@ -5,6 +5,12 @@
   "version": "0.1.0",
   "minAppVersion": "0.4.1",
   "description": "An ephemeral gallery of public host UI controls, local callbacks, and native session surfaces. Requires the current feature/plugin-architecture UI APIs.",
+  "translations": {
+    "zh-CN": {
+      "name": "UI 示例",
+      "description": "一个展示公共宿主 UI 控件、本地回调与原生会话演示面的临时画廊。需要当前的 feature/plugin-architecture UI API。"
+    }
+  },
   "main": "main.js",
   "styles": "styles.css"
 }

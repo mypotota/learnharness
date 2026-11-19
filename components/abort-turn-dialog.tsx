@@ -3,6 +3,7 @@
 import type { ReactElement, ReactNode } from "react";
 import { HostDialog } from "@/components/host-dialog";
 import { useBackdropDismiss } from "@/components/backdrop-dismiss";
+import { englishT, useT } from "@/components/i18n/i18n-provider";
 
 /**
  * The ESC-abort guard (owner, 2026-10-02): the global Esc → abort chain
@@ -27,21 +28,23 @@ import { useBackdropDismiss } from "@/components/backdrop-dismiss";
 /** What Esc is aborting — drives copy and the confirm action. */
 export type AbortMode = "turn" | "question" | "problem";
 
-const COPY: Record<AbortMode, { title: string; line: string; action: string }> = {
+type MessageKey = Parameters<typeof englishT>[0];
+
+const COPY_KEYS: Record<AbortMode, { titleKey: MessageKey; lineKey: MessageKey; actionKey: MessageKey }> = {
 	turn: {
-		title: "Abort this turn?",
-		line: "The partial answer stays in the transcript.",
-		action: "Abort",
+		titleKey: "chat.abortTurnTitle",
+		lineKey: "chat.abortTurnLine",
+		actionKey: "chat.abortAction",
 	},
 	question: {
-		title: "Dismiss this question?",
-		line: "Skipped — the teacher moves on without it.",
-		action: "Dismiss",
+		titleKey: "chat.dismissQuestionTitle",
+		lineKey: "chat.dismissQuestionLine",
+		actionKey: "chat.dismissAction",
 	},
 	problem: {
-		title: "Discard this problem?",
-		line: "The problem is dropped — no solution is revealed.",
-		action: "Discard",
+		titleKey: "chat.discardProblemTitle",
+		lineKey: "chat.discardProblemLine",
+		actionKey: "chat.discardAction",
 	},
 };
 
@@ -63,7 +66,9 @@ export function AbortTurnBody({
 	renderFrame?: (frame: ReactElement<{ children: ReactNode }>) => ReactNode;
 }) {
 	const backdropDismiss = useBackdropDismiss(onClose);
-	const copy = COPY[mode];
+	const t = useT();
+	const keys = COPY_KEYS[mode];
+	const copy = { title: t(keys.titleKey), line: t(keys.lineKey), action: t(keys.actionKey) };
 	const frame = (
 			<div
 				className="mx-4 w-full max-w-sm rounded-xl border bg-card p-5 shadow-lg"
@@ -74,7 +79,7 @@ export function AbortTurnBody({
 				</h2>
 				<p className="mt-1.5 text-xs text-muted-foreground" data-testid="abort-turn-line">
 					{copy.line}
-					{busy && mode !== "turn" ? " The working turn stops too." : ""}
+					{busy && mode !== "turn" ? t("chat.busyStopsToo") : ""}
 				</p>
 				<div className="mt-4 flex justify-end gap-2">
 					<button
@@ -83,7 +88,7 @@ export function AbortTurnBody({
 						onClick={onClose}
 						className="rounded-sm px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
 					>
-						Cancel
+						{t("common.cancel")}
 					</button>
 					<button
 						type="button"
@@ -115,9 +120,10 @@ export function AbortTurnDialog({
 	onConfirm: (mode: AbortMode) => void;
 	busy?: boolean;
 }) {
+	const t = useT();
 	if (mode === null) return null;
 	return <AbortTurnBody mode={mode} onClose={onClose} onConfirm={() => onConfirm(mode)} busy={busy}
-		renderFrame={(frame) => <HostDialog open frame={frame} aria-label={COPY[mode].title}
+		renderFrame={(frame) => <HostDialog open frame={frame} aria-label={t(COPY_KEYS[mode].titleKey)}
 			onClose={() => { onClose(); return "closed"; }}
 			backdropProps={{ className: "fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm", "data-testid": "abort-turn-dialog" }}>
 			{frame.props.children}

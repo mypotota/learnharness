@@ -15,7 +15,7 @@ const PROMPT = path.join("src", "agent", "system-prompt.md");
 const AUTHORING_DOCS = [
 	"plugin-authoring.md", "plugin-architecture.md", "plugin-question-contract.md",
 	"plugin-problem-contract.md", "plugin-session-extension-contract.md", "plugin-tree-contract.md",
-	"plugin-view-context.md", "dialog-overlay-contract.md", "plugin-examples.md",
+	"plugin-view-context.md", "dialog-overlay-contract.md", "plugin-examples.md", "plugin-i18n.md",
 ];
 
 function withPayload(test: (fixture: {

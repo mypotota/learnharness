@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { Button } from "./ui/button";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
+import { useT } from "@/components/i18n/i18n-provider";
 import { captureSelection, type CapturedSelection } from "./selection-text";
 import {
 	isSelectionRectVisible, observeSelectionActions, resolveSelectionActionPosition,
@@ -105,6 +106,7 @@ function selectionVisible(range: Range, viewport: HTMLElement): boolean {
 /** The floating toolbar over a tutor-text selection inside `viewport`. */
 export function SelectionToolbar({ viewport, actions }: { viewport: HTMLElement | null; actions: readonly SelectionAction[] }) {
 	const controller = useOptionalInteractionLayers();
+	const t = useT();
 	const [state, setState] = useState<{ capture: CapturedSelection; position: SelectionActionPoint } | null>(null);
 	const toolbarRef = useRef<HTMLDivElement>(null);
 	const observerRef = useRef<ReturnType<typeof observeSelectionActions> | null>(null);
@@ -184,7 +186,7 @@ export function SelectionToolbar({ viewport, actions }: { viewport: HTMLElement 
 		<div
 			ref={toolbarRef}
 			role="toolbar"
-			aria-label="Selection actions"
+			aria-label={t("citation.selectionActions")}
 			data-testid="selection-toolbar"
 			className="fixed z-50 flex max-w-[calc(100vw-1rem)] gap-1"
 			style={{ left: state.position.x, top: state.position.y }}

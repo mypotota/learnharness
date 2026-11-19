@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { example, family, note, readout, Scope } from "../src/dom.ts";
+import { createTranslator } from "../src/i18n.ts";
 import { createFixture } from "./fixture.ts";
 
 const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
@@ -26,11 +27,12 @@ test("showcase explanatory copy follows appearance reading tokens without changi
 test("headings use compact settings chrome and labels/readouts use the UI ladder", () => {
   const f = createFixture();
   const scope = new Scope(f.controller.signal);
+  const t = createTranslator("en");
   try {
     note(f.root, "Reading explanation");
-    family(f.ui, f.root, scope, "typography", "Compact heading", (body) => {
+    family(f.ui, f.root, scope, "typography", "Compact heading", t, (body) => {
       example(body, "fixture", "Compact label");
-      readout(body, "typography")({ local: true });
+      readout(body, "typography", t)({ local: true });
     });
     for (const [selector, tokens] of [
       ["h2", ["font-ui", "text-sm", "uppercase", "tracking-widest"]],

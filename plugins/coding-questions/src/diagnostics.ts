@@ -1,6 +1,7 @@
 import { syntaxTree, syntaxTreeAvailable } from "@codemirror/language";
 import { linter, type Diagnostic } from "@codemirror/lint";
 import type { EditorState, Extension } from "@codemirror/state";
+import { createTranslator, type Translator } from "./i18n.ts";
 
 const supportedLanguages = new Set([
   "Python", "JavaScript", "TypeScript", "C", "C++", "Java", "Rust", "Go", "JSON",
@@ -12,7 +13,7 @@ export function supportsSyntaxDiagnostics(languageName: string): boolean {
 }
 
 /** Parser feedback only: never execute code, infer types, or reject an answer. */
-export function syntaxDiagnostics(state: EditorState): Diagnostic[] {
+export function syntaxDiagnostics(state: EditorState, t: Translator = createTranslator("en")): Diagnostic[] {
   // Large documents may never be parsed in full while the viewport stays at
   // the top. Use the available tree, excluding recovery at its unfinished edge.
   const tree = syntaxTree(state);
@@ -25,14 +26,14 @@ export function syntaxDiagnostics(state: EditorState): Diagnostic[] {
       const key = `${node.from}:${node.to}`;
       if (seen.has(key)) return;
       seen.add(key);
-      diagnostics.push({ from: node.from, to: node.to, severity: "error", message: "Syntax problem." });
+      diagnostics.push({ from: node.from, to: node.to, severity: "error", message: t("diagnostics.syntaxProblem") });
     },
   });
   return diagnostics;
 }
 
-export function syntaxDiagnosticsExtension(): Extension {
-  return linter(view => syntaxDiagnostics(view.state), {
+export function syntaxDiagnosticsExtension(t: Translator = createTranslator("en")): Extension {
+  return linter(view => syntaxDiagnostics(view.state, t), {
     delay: 300,
     needsRefresh: update => syntaxTree(update.startState) !== syntaxTree(update.state),
   });

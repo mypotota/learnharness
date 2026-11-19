@@ -3,12 +3,13 @@ import { test } from "node:test";
 import { FAMILY_IDS, mountGallery } from "../src/gallery.ts";
 import { openSurfaceDemo } from "../src/surfaces.ts";
 import { Scope } from "../src/dom.ts";
+import { createTranslator } from "../src/i18n.ts";
 import { createFixture } from "./fixture.ts";
 
 const families = ["pickers", "composer", "dictation", "standard-composer", "buttons", "settings", "markdown", "tree", "worker-results", "menus", "dialogs", "surfaces"];
 function mounted() {
   const f = createFixture();
-  const dispose = mountGallery(f.root, f.context, f.controller.signal);
+  const dispose = mountGallery(f.root, f.context, createTranslator("en"), f.controller.signal);
   return { ...f, dispose };
 }
 
@@ -212,7 +213,7 @@ test("menu/dialog calls retain lifetime ownership; explicit native surfaces pres
     assert.equal(f.records.filter(entry => entry.method === "openDialog").length, 2);
     // Opaque unit sentinel is passed unchanged; it is NOT valid for a real host.
     const sentinel = Object.freeze({});
-    openSurfaceDemo(f.ui, sentinel as Parameters<typeof openSurfaceDemo>[1], f.controller.signal);
+    openSurfaceDemo(f.ui, sentinel as Parameters<typeof openSurfaceDemo>[1], f.controller.signal, createTranslator("en"));
     const surface = f.records.findLast(entry => entry.method === "openSurface")!;
     assert.equal(surface.target, sentinel);
     await f.find("surface-nested").props.onClick();
@@ -289,7 +290,7 @@ test("aborted mount is empty; Scope cleanup is once-only including late-owned cl
   const f = createFixture();
   try {
     f.controller.abort();
-    const cleanup = mountGallery(f.root, f.context, f.controller.signal); cleanup();
+    const cleanup = mountGallery(f.root, f.context, createTranslator("en"), f.controller.signal); cleanup();
     assert.equal(f.records.length, 0); assert.equal(f.root.childElementCount, 0);
     const parent = new AbortController(), scope = new Scope(parent.signal);
     let calls = 0; scope.own(() => { calls++; }); parent.abort(); scope.dispose();

@@ -5,6 +5,12 @@
   "version": "0.1.0",
   "minAppVersion": "0.4.1",
   "description": "Teaching questions and coding practice with syntax highlighting and automatic tests using your installed tools. Runs local code with your user permissions; not sandboxed.",
+  "translations": {
+    "zh-CN": {
+      "name": "编程题",
+      "description": "提供教学问题与编程练习，使用你已安装的工具进行语法高亮和自动测试。以你的用户权限在本地运行代码；无沙箱隔离。"
+    }
+  },
   "main": "main.js",
   "backend": "backend.cjs",
   "styles": "styles.css"

@@ -5,6 +5,7 @@ import { CITATION_MAX_COMMENT_LENGTH } from "@/src/core";
 import { Button } from "./ui/button";
 import { useOptionalInteractionLayers } from "./interaction-layers";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
+import { useT } from "@/components/i18n/i18n-provider";
 
 /**
  * THE CITATION COMMENT EDITOR (2026-10-31; behaviour follows T3 Code's
@@ -43,6 +44,7 @@ export function CitationCommentEditor({ initial, onDraftChange, onSave, onCancel
 	onCancel: () => void;
 }) {
 	const controller = useOptionalInteractionLayers();
+	const t = useT();
 	const [draft, setDraft] = useState(initial ?? "");
 	const areaRef = useRef<HTMLTextAreaElement>(null);
 	const tooLong = draft.length > CITATION_MAX_COMMENT_LENGTH;
@@ -53,9 +55,9 @@ export function CitationCommentEditor({ initial, onDraftChange, onSave, onCancel
 				ref={areaRef}
 				value={draft}
 				rows={2}
-				aria-label="Comment on selected text"
-				aria-description="Enter to save the citation comment; Command/Ctrl+Enter to save and send; Shift+Enter for a new line."
-				placeholder="Add an optional comment..."
+				aria-label={t("citation.commentEditorAria")}
+				aria-description={t("citation.commentEditorKeysHint")}
+				placeholder={t("citation.commentPlaceholder")}
 				className="field-sizing-content max-h-40 min-h-16 w-full resize-none rounded-md border bg-background px-2 py-1.5 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
 				onChange={(event) => { setDraft(event.target.value); onDraftChange(event.target.value); }}
 				onKeyDown={(event) => {
@@ -69,12 +71,12 @@ export function CitationCommentEditor({ initial, onDraftChange, onSave, onCancel
 				}}
 			/>
 			{tooLong ? (
-				<p role="status" className="text-xs text-destructive">Comments can contain up to 8,000 characters.</p>
+				<p role="status" className="text-xs text-destructive">{t("citation.commentTooLong")}</p>
 			) : null}
 			<div className="flex justify-end gap-2">
-				<Button type="button" size="xs" variant="outline" onPointerDown={(event) => event.preventDefault()} onClick={onCancel}>Cancel</Button>
+				<Button type="button" size="xs" variant="outline" onPointerDown={(event) => event.preventDefault()} onClick={onCancel}>{t("common.cancel")}</Button>
 				<Button type="button" size="xs" disabled={tooLong} onPointerDown={(event) => event.preventDefault()} onClick={() => onSave(draft, false)}>
-					{tooLong ? "Shorten comment" : "Save"}
+					{tooLong ? t("citation.shortenComment") : t("common.save")}
 				</Button>
 			</div>
 		</div>

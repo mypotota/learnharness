@@ -43,7 +43,7 @@ async function fixture(t: TestContext, pdfConverter = convertPdf) {
 			statuses.push(response.status); return response;
 		},
 		importModule: async () => ({ activate(context) { contexts.set(context.manifest.id, context); } }),
-		pathname: () => "/", navigate() {},
+		pathname: () => "/", navigate() {}, locale: () => "en",
 	});
 	t.after(async () => { await manager.dispose(); await host.dispose(); fs.rmSync(root, { recursive: true, force: true }); });
 	manager.reconcile(host.list()); await tick();

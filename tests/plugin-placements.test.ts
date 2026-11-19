@@ -11,7 +11,7 @@ const info: PluginInfo = { id: "fixture", origin: "community", enabled: true, st
 } };
 function fixture(activate: (ctx: PluginFrontendContext) => void, extra: Partial<ConstructorParameters<typeof PluginFrontendManager>[0]> = {}) {
 	return new PluginFrontendManager({ fetch: async () => Response.json({ plugins: [], directory: "/tmp/plugins" }),
-		importModule: async () => ({ activate }), pathname: () => "/", navigate() {}, ...extra });
+		importModule: async () => ({ activate }), pathname: () => "/", navigate() {}, locale: () => "en", ...extra });
 }
 
 describe("explicit plugin chrome registrations", () => {

@@ -4,12 +4,14 @@ import { useEffect, useRef, useState, type ComponentProps } from "react";
 import type { ExtraProps } from "streamdown";
 import { ToolContentResponse } from "@/components/ai-elements/message";
 import { MarkdownDisplayOnlyContext, mdComponents } from "@/components/md-blocks";
+import { useT } from "@/components/i18n/i18n-provider";
 import { cn } from "@/lib/utils";
 
 /** Streamdown's default image adds a download button independently of its
  * controls setting. Keep its image styling and passive error fallback here,
  * without changing the image component used by ordinary transcripts. */
 function StaticMarkdownImage({ className, src, alt, node, onLoad, onError, ...props }: ComponentProps<"img"> & ExtraProps) {
+	const t = useT();
 	const image = useRef<HTMLImageElement>(null);
 	const [failed, setFailed] = useState(false);
 	useEffect(() => {
@@ -31,7 +33,7 @@ function StaticMarkdownImage({ className, src, alt, node, onLoad, onError, ...pr
 				src={src}
 				{...props}
 			/>
-			{fallback && <span className="text-muted-foreground text-xs italic" data-streamdown="image-fallback">Image not available</span>}
+			{fallback && <span className="text-muted-foreground text-xs italic" data-streamdown="image-fallback">{t("markdown.imageUnavailable")}</span>}
 			<div className="pointer-events-none absolute inset-0 hidden rounded-lg bg-black/10 group-hover:block" />
 		</div>
 	);

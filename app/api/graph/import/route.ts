@@ -20,7 +20,7 @@
  * healthy. The dock's chips + graph refetch track progress live through
  * /api/graph/status, as with session runs.
  */
-import { convertPdf, extraction, joinPages, NotesImportError, sourceDirectory } from "@/src/server";
+import { convertPdf, errorFields, extraction, joinPages, NotesImportError, sourceDirectory } from "@/src/server";
 import { IMPORT_EXTENSIONS, MAX_IMPORT_BODY_BYTES, MAX_IMPORT_BYTES, UNSUPPORTED_TYPE_MESSAGE, validNotesPath } from "@/lib/notes-import-limits.ts";
 import { FormBodyLimitError, readBoundedFormData } from "@/lib/bounded-form-data.ts";
 import {
@@ -87,27 +87,27 @@ export async function POST(request: Request) {
 		form = await readBoundedFormData(request, MAX_IMPORT_BODY_BYTES);
 	} catch (err) {
 		const oversized = err instanceof FormBodyLimitError;
-		return Response.json({ results: [] as ImportResult[], error: oversized
-			? "Import request is too large. Select fewer files."
-			: "Could not read the upload. It may be incomplete; please select the files again." }, { status: oversized ? 413 : 400 });
+		return Response.json({ results: [] as ImportResult[], ...(oversized
+			? errorFields("graph_import.body_too_large")
+			: errorFields("graph_import.read_failed")) }, { status: oversized ? 413 : 400 });
 	}
 	const files = form.getAll("files").filter((f): f is File => f instanceof File);
 	if (files.reduce((total, file) => total + file.size, 0) > MAX_IMPORT_BYTES) {
-		return Response.json({ results: [] as ImportResult[], error: "Too big. Max 25 MB." }, { status: 413 });
+		return Response.json({ results: [] as ImportResult[], ...errorFields("graph_import.too_big") }, { status: 413 });
 	}
 	if (files.length === 0) {
-		return Response.json({ results: [] as ImportResult[], error: "no files" }, { status: 400 });
+		return Response.json({ results: [] as ImportResult[], ...errorFields("graph_import.no_files") }, { status: 400 });
 	}
 
 	// PR198: folder-relative identity, matched to either browser filename form.
 	// Validate every path before conversions, metadata writes, or model calls.
 	const suppliedPaths = form.getAll("paths");
 	if (suppliedPaths.length > 0 && (suppliedPaths.length !== files.length || suppliedPaths.some((p) => typeof p !== "string"))) {
-		return Response.json({ results: [], error: "Invalid import paths" }, { status: 400 });
+		return Response.json({ results: [], ...errorFields("graph_import.invalid_paths") }, { status: 400 });
 	}
 	const paths = suppliedPaths.length > 0 ? suppliedPaths as string[] : files.map((f) => f.name);
 	if (files.some((file, i) => !validNotesPath(paths[i]!, file.name))) {
-		return Response.json({ results: [], error: "Import contains an unsafe or mismatched relative path" }, { status: 400 });
+		return Response.json({ results: [], ...errorFields("graph_import.unsafe_path") }, { status: 400 });
 	}
 	const results: ImportResult[] = [];
 	const queue = files.map((file, requestIndex) => ({ file, requestIndex, filePath: paths[requestIndex]! }));

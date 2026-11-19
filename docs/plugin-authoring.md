@@ -25,6 +25,7 @@ these are separate numbers, not interchangeable compatibility guarantees.
 | Controlled trees | [Tree contract](plugin-tree-contract.md) |
 | Modal, menu, focus and Escape rules | [Interaction contract](dialog-overlay-contract.md) |
 | Host ownership and implementation boundaries | [Architecture](plugin-architecture.md) |
+| Localizing plugin copy and manifest labels | [Plugin i18n](plugin-i18n.md) |
 
 The API reference is generated from the same public contracts as the portable SDK.
 It indexes every public type and declared member, including overloads and referenced

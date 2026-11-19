@@ -77,6 +77,8 @@ export interface PluginHost {
 	openSettings?(pluginId: string): void;
 	createUi?(options: { signal: AbortSignal; pluginId?: string; onError: (error: unknown) => void }): import("@/src/core/plugin-ui").PluginUi;
 	style?(url: string, onError: () => void): PluginCleanup;
+	/** The window's current UI locale, read at each plugin activation. */
+	locale(): import("@/src/core/i18n").AppLocale;
 }
 
 export function pluginViewPath(pluginId: string, viewId: string): string {
@@ -357,7 +359,7 @@ export class PluginFrontendManager {
 		const thisManager = this;
 		let ui: import("@/src/core/plugin-ui").PluginUi | undefined;
 		const context: PluginFrontendContext = {
-			manifest, signal: life.controller.signal,
+			manifest, locale: this.host.locale(), signal: life.controller.signal,
 			cleanup: cleanup => { this.addCleanup(life, cleanup); },
 			registerView: view => register(life.views, view, "mount"),
 			registerAction: action => register(life.actions, action, "run"),

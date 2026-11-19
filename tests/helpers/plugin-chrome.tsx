@@ -51,7 +51,7 @@ export async function mountPluginChrome(frontend: PluginFrontendModule, children
 	const restorePreparedDom = prepareDom?.(dom);
 	const owner = createPluginWindowOwner({
 		fetch: async () => Response.json({ plugins: [pluginInfo()], directory: "/in-memory-plugins" }),
-		importModule: async () => frontend, pathname: () => pathname, navigate() {},
+		importModule: async () => frontend, pathname: () => pathname, navigate() {}, locale: () => "en",
 	});
 	window.__lhPluginWindow = owner;
 	const connect = (): NotifySource => ({ close() {}, onOpen() {}, onEvent() {} });

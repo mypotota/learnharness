@@ -103,7 +103,7 @@ it("real route plus in-memory ledgers and faux stages reprocess identical import
 it("route returns 400 without files", async () => {
 	const response = await POST(request([]));
 	assert.equal(response.status, 400);
-	assert.deepEqual(await response.json(), { results: [], error: "no files" });
+	assert.deepEqual(await response.json(), { results: [], error: "no files", errorCode: "graph_import.no_files" });
 });
 
 function upload(files: { name: string; bytes: Uint8Array<ArrayBuffer> | string }[]) {
@@ -238,7 +238,7 @@ for (const split of [false, true]) it(`server refuses actual file bytes over 25 
 	req.headers.set("content-length", "1"); // not a trustworthy bound
 	const response = await POST(req);
 	assert.equal(response.status, 413);
-	assert.deepEqual(await response.json(), { results: [], error: "Too big. Max 25 MB." });
+	assert.deepEqual(await response.json(), { results: [], error: "Too big. Max 25 MB.", errorCode: "graph_import.too_big" });
 	assert.equal(calls, 0);
 });
 
@@ -265,7 +265,7 @@ for (const declared of [undefined, "1"]) it(`server bounds streamed body bytes w
 	} as RequestInit);
 	const response = await POST(req);
 	assert.equal(response.status, 413);
-	assert.deepEqual(await response.json(), { results: [], error: "Import request is too large. Select fewer files." });
+	assert.deepEqual(await response.json(), { results: [], error: "Import request is too large. Select fewer files.", errorCode: "graph_import.body_too_large" });
 	assert.equal(chunks, MAX_IMPORT_BODY_BYTES / (1024 * 1024) + 1);
 	assert.equal(cancelled, true);
 	assert.equal(calls, 0);
@@ -296,7 +296,7 @@ it("malformed or proxy-truncated multipart is refused before any file enters the
 	]) {
 		const response = await POST(req);
 		assert.equal(response.status, 400);
-		assert.deepEqual(await response.json(), { results: [], error: "Could not read the upload. It may be incomplete; please select the files again." });
+		assert.deepEqual(await response.json(), { results: [], error: "Could not read the upload. It may be incomplete; please select the files again.", errorCode: "graph_import.read_failed" });
 	}
 	assert.equal(calls, 0);
 });

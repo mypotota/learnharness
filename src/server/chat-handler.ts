@@ -1,3 +1,4 @@
+import { errorFields, errorJson } from "./error-response.ts";
 import type { Usage } from "@earendil-works/pi-ai";
 import {
 	createPracticeAgent,
@@ -190,10 +191,10 @@ export async function handleChatRequest(
 	try {
 		body = await req.json();
 	} catch {
-		return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+		return errorJson("body.invalid_json", 400);
 	}
 	const chatId = typeof body.chatId === "string" ? body.chatId : "";
-	if (!chatId) return Response.json({ error: "Unknown chat" }, { status: 404 });
+	if (!chatId) return errorJson("chats.unknown", 404);
 	let input: TurnInput;
 	try {
 		input = parseChatInput(body.input);
@@ -220,7 +221,7 @@ export async function handleChatInput(
 	await reconcilePluginQuestionCompatibility(stores.chatStore, chatId);
 	const initialRecord = stores.chatStore.getChat(chatId);
 	if (!initialRecord) {
-		return Response.json({ error: "Unknown chat" }, { status: 404 });
+		return errorJson("chats.unknown", 404);
 	}
 	let record = initialRecord;
 
@@ -241,20 +242,20 @@ export async function handleChatInput(
 		throw err;
 	}
 	if ((input.type === "plugin-question-answer" || input.type === "plugin-problem-submission") && isTurnRunning(chatId))
-		return Response.json({ error: "A turn is already running for this session" }, { status: 409 });
+		return errorJson("turns.already_running", 409);
 	let questionResolver: QuestionTypeResolver | undefined;
 	let problemResolver: ProblemTypeResolver | undefined;
 	if (input.type === "plugin-problem-submission") {
 		try {
 			const host = await getPluginHost();
 			problemResolver = (pluginId, typeId, version) => host.resolveProblemType(pluginId, typeId, version);
-		} catch { return Response.json({ error: "Problem unavailable" }, { status: 400 }); }
+		} catch { return errorJson("problem.unavailable", 400); }
 	}
 	if (input.type === "plugin-question-answer") {
 		try {
 			const host = await getPluginHost();
 			questionResolver = (pluginId, typeId, version) => host.resolveQuestionType(pluginId, typeId, version);
-		} catch { return Response.json({ error: "Question unavailable" }, { status: 400 }); }
+		} catch { return errorJson("question.unavailable", 400); }
 	}
 
 	// Refuse an ineligible Retry before catalog refresh, compaction, or any
@@ -304,7 +305,7 @@ export async function handleChatInput(
 	if (isSubscriptionProvider(conversation.provider)) {
 		await refreshConnectionCatalog(conversation.provider);
 		if (input.type === "steers" && !connectionBackgroundAllowed(conversation.provider)) {
-			return Response.json({ error: "Background use is off for this connection. Automatic follow-up remains deferred in its queue." }, { status: 403 });
+			return errorJson("follow_up.deferred_background_off", 403);
 		}
 	}
 	if (!providerKeyPresent(conversation.provider)) {
@@ -436,12 +437,12 @@ export async function handleChatInput(
 		}
 	}
 	const compactedRecord = stores.chatStore.getChat(chatId);
-	if (!compactedRecord) return Response.json({ error: "Unknown chat" }, { status: 404 });
+	if (!compactedRecord) return errorJson("chats.unknown", 404);
 	record = compactedRecord;
 	// Final admission seam: every image/preflight await is over. Resolve via
 	// the SAME conversation chain, never a parallel role catalog. No await
 	// may intervene before the save-only write or beginTurn/write below.
-	const staleSubmission = () => Response.json({ code: "submission-stale", error: "The submission target or selected model changed. Your input has been kept." }, { status: 412 });
+	const staleSubmission = () => Response.json({ code: "submission-stale", ...errorFields("submission.target_changed") }, { status: 412 });
 	const submissionIsCurrent = (checkModel = true) => {
 		if (!freshSubmission) return true;
 		if (record.createdAt !== capturedSession.createdAt || record.kind !== capturedSession.kind) return false;
@@ -501,9 +502,9 @@ export async function handleChatInput(
 		// await above. No await separates this structural check from ownership
 		// or the save-only sibling branch below.
 		if (compactionInFlight(chatId))
-			return Response.json({ error: "A turn is already running for this session" }, { status: 409 });
+			return errorJson("turns.already_running", 409);
 		if ((input.type === "plugin-question-answer" || input.type === "plugin-problem-submission") && isTurnRunning(chatId))
-			return Response.json({ error: "A turn is already running for this session" }, { status: 409 });
+			return errorJson("turns.already_running", 409);
 		if (input.type === "plugin-question-answer" || input.type === "plugin-problem-submission") {
 			const questionSubmission = input.type === "plugin-question-answer" ? preparePluginQuestionSubmission({ id: chatId, messages: record.messages }, input, questionResolver!) : undefined;
 			const problemSubmission = input.type === "plugin-problem-submission" ? preparePluginProblemSubmission(record, input, problemResolver!) : undefined;
@@ -511,7 +512,7 @@ export async function handleChatInput(
 			const work = questionSubmission?.grade ?? problemSubmission?.process;
 			if (work) {
 				const claim = claimPreparingTurn(chatId);
-				if (!claim) return Response.json({ error: "A turn is already running for this session" }, { status: 409 });
+				if (!claim) return errorJson("turns.already_running", 409);
 				preparation = claim;
 				turnClaimed = true;
 				const outcome = await work(preparation.signal);
@@ -561,7 +562,7 @@ export async function handleChatInput(
 	// double-run the teacher and clobber the first turn's persist.
 	if (!preparation && !beginTurn(chatId)) {
 		console.info(`[chat ${chatId}] turn already in flight — request rejected`);
-		return Response.json({ error: "A turn is already running for this session" }, { status: 409 });
+		return errorJson("turns.already_running", 409);
 	}
 
 	turnClaimed = true;
@@ -966,7 +967,7 @@ export async function handleChatInput(
 		// grading and the canonical save, then closes before teacher output. The
 		// turn itself is a server-side process (ruling 2026-09-25) — it never
 		// needed this connection, only a view did.
-		if (stagedAutomatic && requestCycle && !(await requestCycle.admission)) return Response.json({ error: "Automatic follow-up remains deferred in its queue." }, { status: 403 });
+		if (stagedAutomatic && requestCycle && !(await requestCycle.admission)) return errorJson("follow_up.deferred", 403);
 		return Response.json({ ok: true });
 	} catch (err) {
 		console.error(`[chat ${chatId}] turn failed to start:`, err);
@@ -976,7 +977,7 @@ export async function handleChatInput(
 			rememberTurnFailure(chatId, "Failed to start the turn");
 			return Response.json({ ok: true });
 		}
-		return Response.json({ error: "Failed to start the turn" }, { status: 500 });
+		return errorJson("turns.start_failed", 500);
 	}
 	} catch (err) {
 		if (preparation && inputSaved) {
@@ -990,7 +991,7 @@ export async function handleChatInput(
 		}
 		if (turnClaimed) {
 			console.error(`[chat ${chatId}] turn failed to start:`, err);
-			return Response.json({ error: "Failed to start the turn" }, { status: 500 });
+			return errorJson("turns.start_failed", 500);
 		}
 		throw err;
 	} finally {

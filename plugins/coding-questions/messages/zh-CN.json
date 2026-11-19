@@ -1,0 +1,17 @@
+{
+  "result.unavailable": "已保存的测试结果不可用。",
+  "result.testsPassed": "测试通过",
+  "result.testsFailed": "测试失败",
+  "result.testsNotRun": "无法运行测试",
+  "result.output": "测试输出",
+  "result.stdout": "标准输出",
+  "result.stderr": "标准错误",
+  "result.truncated": "{label}在 64 KiB 处被截断。",
+  "solution.title": "题解",
+  "disclosure.hide": "隐藏{label}",
+  "editor.codeAnswer": "代码答案",
+  "editor.submittedCode": "已提交的代码",
+  "editor.plainText": "纯文本",
+  "editor.loadingHighlighting": "正在加载高亮…",
+  "diagnostics.syntaxProblem": "语法问题。"
+}

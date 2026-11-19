@@ -3,11 +3,12 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import type { PluginTreeRow } from "learnharness-plugin-api";
 import { mountGallery } from "../src/gallery.ts";
+import { createTranslator } from "../src/i18n.ts";
 import { createFixture, type MountRecord } from "./fixture.ts";
 
 const defaults = { selectionEnabled: false, selectedOccurrenceKeys: [], expanded: { "example-folder": true, "another-folder": true }, draft: "Local draft", lastCallback: "none" };
 function mounted() {
-  const f = createFixture(); const dispose = mountGallery(f.root, f.context, f.controller.signal);
+  const f = createFixture(); const dispose = mountGallery(f.root, f.context, createTranslator("en"), f.controller.signal);
   return { ...f, dispose };
 }
 function rows(tree: MountRecord): PluginTreeRow[] {

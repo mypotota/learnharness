@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { KEYBOARD_ACTIONS, KEYMAP_CHANGED_EVENT, loadOverrides, pluginShortcutId, pluginShortcutMatches, resolvePluginShortcuts, eventBinding, isTypingSurface, type PluginPageActionContext, type PluginShortcutCandidate, type KeymapOverrides } from "@/src/core";
+import { KEYBOARD_ACTIONS, KEYMAP_CHANGED_EVENT, loadOverrides, keyActionLabel, pluginShortcutId, pluginShortcutMatches, resolvePluginShortcuts, eventBinding, isTypingSurface, type PluginPageActionContext, type PluginShortcutCandidate, type KeymapOverrides } from "@/src/core";
+import { englishT, useT } from "@/components/i18n/i18n-provider";
 import { usePlugins } from "./plugins";
 import type { FrontendPlugin, PluginFrontendManager } from "./plugin-manager";
 import type { InteractionLayersController } from "./interaction-layers";
@@ -13,10 +14,10 @@ export function pluginShortcutCandidates(plugins: readonly FrontendPlugin[]): Pl
 		return action ? [{ id: pluginShortcutId(plugin.info.id, actionId), pluginId: plugin.info.id, actionId, pluginName: plugin.info.manifest?.name ?? plugin.info.id, name: action.name, shortcut }] : [];
 	}));
 }
-export function coreShortcutBindings(overrides: KeymapOverrides = loadOverrides()): Map<string, string> {
+export function coreShortcutBindings(overrides: KeymapOverrides = loadOverrides(), t: typeof englishT = englishT): Map<string, string> {
 	return new Map(KEYBOARD_ACTIONS.filter(action => !action.displayOnly).flatMap(action => {
 		const binding = overrides[action.id] ?? action.binding;
-		return binding ? [[binding, action.label] as const] : [];
+		return binding ? [[binding, keyActionLabel(action.id, t)] as const] : [];
 	}));
 }
 export function useKeymapRevision() {
@@ -32,17 +33,18 @@ export function useKeymapRevision() {
 export function usePluginShortcutRows() {
 	const { snapshot } = usePlugins();
 	useKeymapRevision();
+	const t = useT();
 	const candidates = pluginShortcutCandidates(snapshot.plugins), overrides = loadOverrides();
-	return { candidates, rows: resolvePluginShortcuts(candidates, overrides, coreShortcutBindings(overrides)) };
+	return { candidates, rows: resolvePluginShortcuts(candidates, overrides, coreShortcutBindings(overrides, t)) };
 }
 export function usePluginShortcutPage(pathname: string, read: () => PluginPageActionContext | undefined) {
 	const { manager } = usePlugins();
 	const latest = useRef(read); latest.current = read;
 	useLayoutEffect(() => manager?.registerShortcutPage(pathname, () => latest.current()), [manager, pathname]);
 }
-export function pluginShortcutScopeLabel(candidate: PluginShortcutCandidate): string {
+export function pluginShortcutScopeLabel(candidate: PluginShortcutCandidate, t: typeof englishT = englishT): string {
 	const scope = candidate.shortcut.scope;
-	return scope === "app" ? "App-wide" : [...(scope.sessions ?? []).map(kind => kind === "teaching" ? "Teaching" : "Practice"), ...(scope.views?.length ? [`Views: ${scope.views.join(", ")}`] : [])].join(" · ");
+	return scope === "app" ? t("keyboard.scopeAppWide") : [...(scope.sessions ?? []).map(kind => kind === "teaching" ? t("sidebar.teaching") : t("sidebar.practice")), ...(scope.views?.length ? [t("keyboard.scopeViews", { views: scope.views.join(", ") })] : [])].join(" · ");
 }
 
 /** Window-bubble fallback only; never an independent low-level plugin listener. */

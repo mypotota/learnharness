@@ -5,6 +5,12 @@
   "version": "0.1.0",
   "minAppVersion": "0.4.1",
   "description": "Static chemical structures, musical notation and technical diagrams from SMILES, ABC and TikZ code blocks.",
+  "translations": {
+    "zh-CN": {
+      "name": "富代码块",
+      "description": "由 SMILES、ABC 和 TikZ 代码块生成静态的化学结构、音乐记谱与技术图示。"
+    }
+  },
   "main": "main.js",
   "backend": "backend.cjs",
   "styles": "styles.css"

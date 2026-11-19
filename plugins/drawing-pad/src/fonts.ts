@@ -1,4 +1,7 @@
 import { abortable } from "./abort.ts";
+import { createTranslator, type Translator } from "./i18n.ts";
+
+const english = createTranslator("en");
 
 function unescapeCss(value: string): string {
   return value.replace(/\\([\da-f]{1,6})(?:\r\n|[ \t\n\r\f])?|\\([\s\S])/gi, (_match, hex: string | undefined, character: string | undefined) => {
@@ -52,21 +55,21 @@ export function cssUrls(value: string): CssUrl[] {
   }
   return urls;
 }
-function readDataUrl(blob: Blob, signal: AbortSignal): Promise<string> {
+function readDataUrl(blob: Blob, signal: AbortSignal, t: Translator): Promise<string> {
   signal.throwIfAborted();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     const cleanup = () => signal.removeEventListener("abort", abort);
     const abort = () => { reader.abort(); cleanup(); reject(signal.reason); };
-    reader.onload = () => { cleanup(); if (typeof reader.result === "string") resolve(reader.result); else reject(new Error("Could not encode a reference font.")); };
-    reader.onerror = () => { cleanup(); reject(reader.error ?? new Error("Could not read a reference font.")); };
+    reader.onload = () => { cleanup(); if (typeof reader.result === "string") resolve(reader.result); else reject(new Error(t("font.encodeError"))); };
+    reader.onerror = () => { cleanup(); reject(reader.error ?? new Error(t("font.readError"))); };
     signal.addEventListener("abort", abort, { once: true }); reader.readAsDataURL(blob);
   });
 }
 /** Build detached font CSS from browser-parsed, already-loaded stylesheets.
  * Never fetch/parse an imported stylesheet or insert rules into the live page.
  * CSSImportRule.styleSheet has the browser-resolved URL for relative font assets. */
-export async function referenceFontCSS(root: HTMLElement, signal: AbortSignal): Promise<string> {
+export async function referenceFontCSS(root: HTMLElement, signal: AbortSignal, t: Translator = english): Promise<string> {
   signal.throwIfAborted();
   const document = root.ownerDocument, window = document.defaultView!;
   await abortable(document.fonts.ready, signal);
@@ -99,7 +102,7 @@ export async function referenceFontCSS(root: HTMLElement, signal: AbortSignal): 
     seen.add(sheet);
     let rules: CSSRuleList;
     try { rules = sheet.cssRules; }
-    catch { throw new Error(`Could not inspect the font stylesheet ${sheet.href ?? "(inline)"}.`); }
+    catch { throw new Error(t("font.inspectError", { href: sheet.href ?? "(inline)" })); }
     visitRules(rules, sheet.href ?? document.baseURI);
   };
   for (const sheet of [...document.styleSheets, ...document.adoptedStyleSheets]) visitSheet(sheet);
@@ -109,10 +112,10 @@ export async function referenceFontCSS(root: HTMLElement, signal: AbortSignal): 
     if (!pending) {
       pending = (async () => {
         const response = await fetch(url, { signal });
-        if (!response.ok || response.headers.get("content-type")?.toLowerCase().includes("text/html")) throw new Error(`Could not load a reference font (${response.status}).`);
+        if (!response.ok || response.headers.get("content-type")?.toLowerCase().includes("text/html")) throw new Error(t("font.loadError", { status: response.status }));
         const blob = await response.blob();
-        if (!blob.size) throw new Error("A reference font was empty.");
-        return readDataUrl(blob, signal);
+        if (!blob.size) throw new Error(t("font.emptyError"));
+        return readDataUrl(blob, signal, t);
       })();
       resources.set(url, pending);
     }

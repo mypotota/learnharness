@@ -13,7 +13,7 @@ const messages = [{ id: "pose", role: "assistant", content: [{ type: "toolCall",
 test("problem renderer registration is owner-scoped, receiver-bound and removed with activation", async () => {
   const info = (id: string): PluginInfo => ({ id, origin: "community", enabled: true, status: "active", revision: "1", manifest: { apiVersion: 1, id, name: id, version: "1.0.0", minAppVersion: "0.4.1", main: "index.js" } });
   const contexts: PluginFrontendContext[] = [];
-  const manager = new PluginFrontendManager({ fetch: async () => Response.json({}), pathname: () => "/", navigate() {}, async importModule() { return { activate(context) {
+  const manager = new PluginFrontendManager({ fetch: async () => Response.json({}), pathname: () => "/", navigate() {}, locale: () => "en", async importModule() { return { activate(context) {
     contexts.push(context);
     context.registerProblemRenderer({ id: "code", supportedContractVersions: [1], mountSubmissionEditor() { assert.equal(this.id, "code"); return { update() {}, focus() {}, dispose() {} }; } });
   } }; } });

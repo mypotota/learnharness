@@ -1,5 +1,6 @@
 import { Quote } from "lucide-react";
 import { CITATION_MAX_TEXT_LENGTH, serializeCitation, type TutorCitation } from "@/src/core";
+import { englishT } from "@/components/i18n/i18n-provider";
 import { INSERT_CITATION_EVENT, type CitationInsertedRange, type InsertCitationDetail } from "./path-input";
 import type { SelectionAction } from "./selection-toolbar";
 
@@ -17,18 +18,20 @@ export interface CitationEditTarget {
 
 /** The toolbar's Cite button: quote the selection into the composer and
  *  open the comment editor on the new chip. */
-export function createCiteAction({ chatId, composer, openEditor }: {
+export function createCiteAction({ chatId, composer, openEditor, t = englishT }: {
 	chatId: string;
 	/** The intended editable root: composer or the active thinking field. */
 	composer: () => HTMLElement | null;
 	openEditor: (target: CitationEditTarget) => void;
+	/** The caller's live translator; the English default keeps pure callers rendering today's copy. */
+	t?: typeof englishT;
 }): SelectionAction {
 	return {
 		id: "cite",
-		label: "Cite",
-		ariaLabel: "Cite selection in your input",
+		label: t("citation.cite"),
+		ariaLabel: t("citation.citeSelectionAria"),
 		icon: Quote,
-		disabledLabel: (capture) => (capture.selector.text.length > CITATION_MAX_TEXT_LENGTH ? "Shorten selection" : null),
+		disabledLabel: (capture) => (capture.selector.text.length > CITATION_MAX_TEXT_LENGTH ? t("citation.shortenSelection") : null),
 		visible: () => composer() !== null,
 		onSelect: (capture) => {
 			const root = composer();

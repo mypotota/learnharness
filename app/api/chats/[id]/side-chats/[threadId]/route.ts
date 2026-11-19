@@ -3,7 +3,7 @@
  * after reload); PATCH changes window visibility. Closing never deletes it.
  */
 import { parseSideOpenInput, SideChatInputError } from "@/src/core";
-import { sideChats } from "@/src/server";
+import { sideChats, errorJson } from "@/src/server";
 
 type Ctx = { params: Promise<{ id: string; threadId: string }> };
 
@@ -17,8 +17,8 @@ export async function PATCH(request: Request, ctx: Ctx): Promise<Response> {
 		throw err;
 	}
 	const result = sideChats.setOpen(id, threadId, open);
-	if (result === "unknown-chat") return Response.json({ error: "Unknown chat" }, { status: 404 });
-	if (result === "unknown-thread") return Response.json({ error: "Unknown side thread" }, { status: 404 });
+	if (result === "unknown-chat") return errorJson("chats.unknown", 404);
+	if (result === "unknown-thread") return errorJson("side_threads.unknown", 404);
 	return Response.json({ thread: result });
 }
 

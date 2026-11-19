@@ -10,7 +10,7 @@
  * flight (the dock is the source of truth for that); failures are logged
  * by the pipeline and leave coverage untouched — the button stays honest.
  */
-import { extraction, extractionStatuses } from "@/src/server";
+import { extraction, extractionStatuses, errorJson } from "@/src/server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,14 +19,14 @@ export async function POST(request: Request) {
 	try {
 		body = await request.json();
 	} catch {
-		return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+		return errorJson("body.invalid_json", 400);
 	}
 	const chatId = (body as { chatId?: unknown }).chatId;
 	if (typeof chatId !== "string" || chatId === "") {
-		return Response.json({ error: 'Body must be {chatId: string}' }, { status: 400 });
+		return errorJson("extraction.body_invalid", 400);
 	}
 	if (extractionStatuses().some((run) => run.kind === "chat" && run.chatId === chatId)) {
-		return Response.json({ error: "An extraction run is already in flight for this session" }, { status: 409 });
+		return errorJson("extraction.in_flight", 409);
 	}
 	// Fire-and-forget, like the trigger: the dock + the coverage panel's
 	// running flags track progress; the promise never blocks the response.

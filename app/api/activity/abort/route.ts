@@ -17,21 +17,21 @@
  * Extraction abort is idempotent by design (aborting with nothing in
  * flight is success — the blob is gone either way) -> 200.
  */
-import { abortExtraction, abortJob, abortPluginWorkerActivity, abortTurn } from "@/src/server";
+import { abortExtraction, abortJob, abortPluginWorkerActivity, abortTurn, errorJson } from "@/src/server";
 
 export async function POST(req: Request) {
 	let body: unknown;
 	try {
 		body = await req.json();
 	} catch {
-		return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+		return errorJson("body.invalid_json", 400);
 	}
 	const { kind, id } = (body ?? {}) as { kind?: string; id?: string };
 	if ((kind !== "job" && kind !== "plugin-worker" && kind !== "extraction" && kind !== "turn") || typeof id !== "string" || id === "") {
-		return Response.json({ error: 'Body must be {kind: "job"|"plugin-worker"|"extraction"|"turn", id: string}' }, { status: 400 });
+		return errorJson("activity.abort_body_invalid", 400);
 	}
 	if (!/^[A-Za-z0-9:_-]+$/.test(id)) {
-		return Response.json({ error: "Invalid id" }, { status: 400 });
+		return errorJson("activity.abort_id_invalid", 400);
 	}
 
 	if (kind === "job") {

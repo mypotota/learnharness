@@ -76,6 +76,11 @@ export * from "./file-access.ts";
 // the provider, Settings and the themes API.
 export * from "./themes.ts";
 export * from "./dictation.ts";
+// i18n/locales.ts (i18n wave, 2026-11-19): the locale vocabulary — pure and
+// tiny (the two shipped locales, the guard, the OS matcher). The MESSAGE
+// CATALOGS are deliberately NOT re-exported here: they are data the shell
+// loads on purpose (components/i18n/**), not part of every import.
+export * from "./i18n/locales.ts";
 // graph-deletion.ts (wave 6): the whole module is PURE but storage-port
 // driven — the deletion RUNS server-side only. The shell needs exactly one
 // two type-only things from it: the ChatDeleteMode union (the delete
@@ -92,6 +97,8 @@ export * from "./session-navigation.ts";
 export * from "./auth-keys.ts";
 // keyboard.ts: the shortcut registry + binding normalization (pure, browser-safe).
 export * from "./keyboard.ts";
+// dialog-copy.ts: the destructive-dialog copy constants (owner-locked English pins).
+export * from "./dialog-copy.ts";
 export * from "./plugin-shortcuts.ts";
 export * from "./coverage.ts";
 // session-markdown.ts (2026-09-27 engine; first consumer 2026-10-06): the
@@ -101,6 +108,9 @@ export * from "./session-markdown.ts";
 // side-chat.ts (shared side conversations): ask-input validation,
 // thread lookup and the side model's lesson document. Pure, browser-safe.
 export * from "./side-chat.ts";
+// error-codes.ts (i18n wave, 2026-11-19): the API error-code seam —
+// pure data the client reads to localize error bodies.
+export * from "./error-codes.ts";
 export * from "./plugins.ts";
 export * from "./plugin-questions.ts";
 export * from "./plugin-problems.ts";

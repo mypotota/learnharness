@@ -2,19 +2,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CLAUDE_CODE_MINIMUM_VERSION, type ClaudeCodeStatus, type UserSettings } from "@/src/core";
 import { notifySettingsSaved, useSettingsSaved } from "@/components/settings-signal";
+import { englishT, useT } from "@/components/i18n/i18n-provider";
 import { Button } from "@/components/ui/button";
 import { Toggle } from "./controls";
 
-export function claudeCodeStatusLabel(status: ClaudeCodeStatus | null): string {
+export function claudeCodeStatusLabel(status: ClaudeCodeStatus | null, t: typeof englishT = englishT): string {
 	switch (status?.state) {
-		case "not-found": return "Not found";
-		case "meets-minimum": return `Version ${status.version} · meets minimum`;
-		case "update-required": return `Version ${status.version} · update required`;
-		default: return "Version could not be checked";
+		case "not-found": return t("settings.claudeCode.notFound");
+		case "meets-minimum": return t("settings.claudeCode.meetsMinimum", { version: String(status.version) });
+		case "update-required": return t("settings.claudeCode.updateRequired", { version: String(status.version) });
+		default: return t("settings.claudeCode.unchecked");
 	}
 }
 
 export function ClaudeCodeInstallationStatus() {
+	const t = useT();
 	const [enabled, setEnabled] = useState(false);
 	const [loaded, setLoaded] = useState(false);
 	const [saving, setSaving] = useState(false);
@@ -40,9 +42,9 @@ export function ClaudeCodeInstallationStatus() {
 				setError(null);
 			}
 		} catch {
-			if (!controller.signal.aborted) setError("Could not load Claude Code settings.");
+			if (!controller.signal.aborted) setError(t("settings.claudeCode.loadFailed"));
 		}
-	}, []);
+	}, [t]);
 	useEffect(() => {
 		void read();
 		return () => { settingsRead.current?.abort(); settingsWrite.current?.abort(); };
@@ -66,7 +68,7 @@ export function ClaudeCodeInstallationStatus() {
 				notifySettingsSaved("claudeCode");
 			}
 		} catch {
-			if (!controller.signal.aborted) setError("Could not save Claude Code settings.");
+			if (!controller.signal.aborted) setError(t("settings.claudeCode.saveFailed"));
 		} finally {
 			if (!controller.signal.aborted) setSaving(false);
 		}
@@ -100,18 +102,18 @@ export function ClaudeCodeInstallationStatus() {
 
 	return <div className="space-y-2" data-testid="claude-code-installation">
 		<div className="flex items-center gap-3">
-			<span className="font-prose text-(length:--lh-prose-size) text-foreground">Claude Code</span>
-			<Toggle label="Claude Code" checked={enabled} disabled={!loaded || saving} onChange={(next) => void save(next)} />
+			<span className="font-prose text-(length:--lh-prose-size) text-foreground">{t("settings.claudeCode.title")}</span>
+			<Toggle label={t("settings.claudeCode.title")} checked={enabled} disabled={!loaded || saving} onChange={(next) => void save(next)} />
 		</div>
 		{error && <p role="alert" className="text-xs text-error">{error}</p>}
 		{enabled && <>
 			<div className="flex flex-wrap items-center gap-3">
-				<span role="status" className="text-xs text-muted-foreground">{busy ? "Checking…" : claudeCodeStatusLabel(status)}</span>
-				<Button type="button" size="xs" variant="outline" className="cursor-pointer disabled:cursor-not-allowed" disabled={busy} onClick={() => void refresh()} data-testid="claude-code-check-again">Check again</Button>
+				<span role="status" className="text-xs text-muted-foreground">{busy ? t("settings.claudeCode.checking") : claudeCodeStatusLabel(status, t)}</span>
+				<Button type="button" size="xs" variant="outline" className="cursor-pointer disabled:cursor-not-allowed" disabled={busy} onClick={() => void refresh()} data-testid="claude-code-check-again">{t("settings.claudeCode.checkAgain")}</Button>
 			</div>
-			<p className="text-xs leading-relaxed text-muted-foreground"><strong className="font-medium">Install and authenticate Claude Code in your terminal, then select a Claude Code model here.</strong> LearnHarness starts it when needed—no background process required.</p>
-			<p className="text-xs leading-relaxed text-muted-foreground">Checks installation/version only—not authentication, model access, or quota. Claude Code controls billing. Requires v{CLAUDE_CODE_MINIMUM_VERSION}+. <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">Setup ↗</a></p>
-			<p className="text-xs leading-relaxed text-muted-foreground">Verify AI claims independently—they may be inaccurate, incomplete, misleading, or outdated.</p>
+			<p className="text-xs leading-relaxed text-muted-foreground"><strong className="font-medium">{t("settings.claudeCode.installHint")}</strong> {t("settings.claudeCode.startHint")}</p>
+			<p className="text-xs leading-relaxed text-muted-foreground">{t("settings.claudeCode.checksNote", { version: CLAUDE_CODE_MINIMUM_VERSION })} <a href="https://code.claude.com/docs/en/setup" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:text-foreground">{t("settings.claudeCode.setupLink")}</a></p>
+			<p className="text-xs leading-relaxed text-muted-foreground">{t("settings.claudeCode.disclaimer")}</p>
 		</>}
 	</div>;
 }

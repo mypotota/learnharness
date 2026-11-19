@@ -18,6 +18,8 @@
  * have shapes worth checking and docs worth showing).
  */
 
+import { EN_MESSAGES, type TranslateFn } from "./i18n/messages/index.ts";
+
 /** One curated key entry. `id` is the env-var/file key name. */
 export interface AuthKeyInfo {
 	id: string;
@@ -33,37 +35,37 @@ export const AUTH_KEYS: readonly AuthKeyInfo[] = [
 	{
 		id: "DEEPGRAM_API_KEY",
 		label: "Deepgram",
-		description: "Speech-to-text key for dictation — needs ≥ Member permission in the Deepgram console to mint tokens.",
+		description: EN_MESSAGES.auth.keyDeepgram,
 		docsUrl: "https://console.deepgram.com/",
 	},
 	{
 		id: "TAVILY_API_KEY",
 		label: "Tavily",
-		description: "Web-search engine for the researcher sub-agent (AI-native search API). Setting the key activates it — no engine toggle needed.",
+		description: EN_MESSAGES.auth.keyTavily,
 		docsUrl: "https://app.tavily.com/",
 	},
 	{
 		id: "BRAVE_API_KEY",
 		label: "Brave Search",
-		description: "Web-search engine for the researcher sub-agent — the alternative to Tavily. Setting the key activates it.",
+		description: EN_MESSAGES.auth.keyBrave,
 		docsUrl: "https://brave.com/search/api/",
 	},
 	{
 		id: "EXA_API_KEY",
 		label: "Exa",
-		description: "Web-search engine for the researcher. Search requests use your Exa account and its pricing.",
+		description: EN_MESSAGES.auth.keyExa,
 		docsUrl: "https://dashboard.exa.ai/api-keys",
 	},
 	{
 		id: "FIRECRAWL_API_KEY",
 		label: "Firecrawl",
-		description: "Web-search engine for the researcher sub-agent — an alternative to Tavily and Brave. Setting the key activates it.",
+		description: EN_MESSAGES.auth.keyFirecrawl,
 		docsUrl: "https://www.firecrawl.dev/app/api-keys",
 	},
 	{
 		id: "OLLAMA_API_KEY",
 		label: "Ollama",
-		description: "Hosted web search at ollama.com — requires an Ollama API key. Setting it activates search, not local models.",
+		description: EN_MESSAGES.auth.keyOllama,
 		docsUrl: "https://ollama.com/settings/keys",
 	},
 ] as const;
@@ -124,21 +126,48 @@ export const AUTH_PROVIDER_KEYS: readonly AuthProviderInfo[] = [
 	{ id: "opencode", envVar: "OPENCODE_API_KEY", label: "OpenCode Zen" },
 	{ id: "opencode-go", envVar: "OPENCODE_API_KEY", label: "OpenCode Go" },
 	{ id: "openrouter", envVar: "OPENROUTER_API_KEY", label: "OpenRouter" },
-	{ id: "qwen-token-plan", envVar: "QWEN_TOKEN_PLAN_API_KEY", label: "Qwen Token Plan" },
-	{ id: "qwen-token-plan-cn", envVar: "QWEN_TOKEN_PLAN_CN_API_KEY", label: "Qwen Token Plan CN" },
-	{ id: "qwen-token-plan-individual", envVar: "QWEN_TOKEN_PLAN_API_KEY", label: "Qwen Token Plan Individual" },
+	{ id: "qwen-token-plan", envVar: "QWEN_TOKEN_PLAN_API_KEY", label: EN_MESSAGES.auth.qwenTokenPlan },
+	{ id: "qwen-token-plan-cn", envVar: "QWEN_TOKEN_PLAN_CN_API_KEY", label: EN_MESSAGES.auth.qwenTokenPlanCn },
+	{ id: "qwen-token-plan-individual", envVar: "QWEN_TOKEN_PLAN_API_KEY", label: EN_MESSAGES.auth.qwenTokenPlanIndividual },
 	{ id: "radius", envVar: "RADIUS_API_KEY", label: "Radius" },
 	{ id: "together", envVar: "TOGETHER_API_KEY", label: "Together" },
 	{ id: "typesafe", envVar: "TYPESAFE_API_KEY", label: "TypeSafe" },
 	{ id: "vercel-ai-gateway", envVar: "AI_GATEWAY_API_KEY", label: "Vercel AI Gateway" },
 	{ id: "xai", envVar: "XAI_API_KEY", label: "xAI" },
 	{ id: "xiaomi", envVar: "XIAOMI_API_KEY", label: "Xiaomi" },
-	{ id: "xiaomi-token-plan-ams", envVar: "XIAOMI_TOKEN_PLAN_AMS_API_KEY", label: "Xiaomi Token Plan AMS" },
-	{ id: "xiaomi-token-plan-cn", envVar: "XIAOMI_TOKEN_PLAN_CN_API_KEY", label: "Xiaomi Token Plan CN" },
-	{ id: "xiaomi-token-plan-sgp", envVar: "XIAOMI_TOKEN_PLAN_SGP_API_KEY", label: "Xiaomi Token Plan SGP" },
+	{ id: "xiaomi-token-plan-ams", envVar: "XIAOMI_TOKEN_PLAN_AMS_API_KEY", label: EN_MESSAGES.auth.xiaomiTokenPlanAms },
+	{ id: "xiaomi-token-plan-cn", envVar: "XIAOMI_TOKEN_PLAN_CN_API_KEY", label: EN_MESSAGES.auth.xiaomiTokenPlanCn },
+	{ id: "xiaomi-token-plan-sgp", envVar: "XIAOMI_TOKEN_PLAN_SGP_API_KEY", label: EN_MESSAGES.auth.xiaomiTokenPlanSgp },
 	{ id: "zai", envVar: "ZAI_API_KEY", label: "Z.AI" },
-	{ id: "zai-coding-cn", envVar: "ZAI_CODING_CN_API_KEY", label: "Z.AI Coding CN" },
+	{ id: "zai-coding-cn", envVar: "ZAI_CODING_CN_API_KEY", label: EN_MESSAGES.auth.zaiCodingCn },
 ] as const;
+
+/** The provider label in the ACTIVE language (i18n wave): the table's
+ *  labels stay pi-ai's own names byte-for-byte (the exact-equality gate),
+ *  so entries whose names carry English words resolve here, at display
+ *  time; brand names fall back to the given label untouched. */
+export function providerLabel(id: string, fallback: string, t: TranslateFn): string {
+	switch (id) {
+		case "qwen-token-plan":
+			return t("auth.qwenTokenPlan");
+		case "qwen-token-plan-cn":
+			return t("auth.qwenTokenPlanCn");
+		case "qwen-token-plan-individual":
+			return t("auth.qwenTokenPlanIndividual");
+		case "xiaomi-token-plan-ams":
+			return t("auth.xiaomiTokenPlanAms");
+		case "xiaomi-token-plan-cn":
+			return t("auth.xiaomiTokenPlanCn");
+		case "xiaomi-token-plan-sgp":
+			return t("auth.xiaomiTokenPlanSgp");
+		case "zai-coding-cn":
+			return t("auth.zaiCodingCn");
+		case "custom":
+			return t("auth.customEndpoint");
+		default:
+			return fallback;
+	}
+}
 
 /**
  * THE single custom endpoint's identity: a user-configured OpenAI-compatible
@@ -150,7 +179,7 @@ export const AUTH_PROVIDER_KEYS: readonly AuthProviderInfo[] = [
 export const CUSTOM_PROVIDER = {
 	id: "custom",
 	envVar: "CUSTOM_OPENAI_API_KEY",
-	label: "Custom endpoint",
+	label: EN_MESSAGES.auth.customEndpoint,
 } as const;
 
 /** Every distinct env var a model-provider key rides in (the write side's

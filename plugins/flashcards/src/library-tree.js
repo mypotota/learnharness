@@ -18,7 +18,7 @@ const settingsIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
 
 const plusIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 
-export function mountLibraryTree({ ctx, container, signal, button, onReview, onPreview, onEdit, onDelete, onCreateCard, onCreateCue, onDeckSettings, onMemberships, onReorder, onRename, onSelection, onError }) {
+export function mountLibraryTree({ ctx, container, signal, button, t, onReview, onPreview, onEdit, onDelete, onCreateCard, onCreateCue, onDeckSettings, onMemberships, onReorder, onRename, onSelection, onError }) {
   const viewport = el('div', 'fc-tree-viewport');
   const inner = el('div', 'fc-tree-inner');
   const empty = el('p', 'fc-muted');
@@ -43,14 +43,14 @@ export function mountLibraryTree({ ctx, container, signal, button, onReview, onP
   const run = action => async () => { try { await action(); } catch (error) { if (live()) onError(error instanceof Error ? error.message : String(error)); } };
   function rowSelection(tokens, label) {
     const count = tokens.filter(key => selected.has(key)).length;
-    return { label: `Select ${label}`, checked: count === tokens.length, indeterminate: count > 0 && count < tokens.length, onChange(value) {
+    return { label: t('library.select', { label }), checked: count === tokens.length, indeterminate: count > 0 && count < tokens.length, onChange(value) {
       if (!live()) return;
       for (const token of tokens) { if (value) selected.add(token); else selected.delete(token); }
       render();
     } };
   }
   function disclosure(key, label) {
-    return { label: `Toggle ${label}`, expanded: expanded.has(key) || !!query, onChange(value) {
+    return { label: t('library.toggle', { label }), expanded: expanded.has(key) || !!query, onChange(value) {
       if (!live()) return;
       if (value) expanded.add(key); else expanded.delete(key);
       // Explicit folds during search should not instantly reopen themselves.
@@ -63,13 +63,13 @@ export function mountLibraryTree({ ctx, container, signal, button, onReview, onP
     const { kind, deck, p, cue, archive } = record;
     if (archive) return [];
     const items = kind === 'deck' ? [
-      { key: 'settings', label: 'Deck settings', onSelect: run(() => onDeckSettings(record.deck)) },
+      { key: 'settings', label: t('deck.settings'), onSelect: run(() => onDeckSettings(record.deck)) },
     ]
-      : kind === 'proposition' ? [{ key: 'memberships', label: 'Decks…', onSelect: run(() => onMemberships(record.p)) }]
-      : [{ key: 'edit', label: 'Edit', onSelect: run(() => onEdit(record.p, record.cue)) }, { key: 'delete', label: 'Delete', disabled: ['running', 'cancelling'].includes(state.batch?.status), onSelect: run(() => onDelete(record.p, record.cue)) }];
+      : kind === 'proposition' ? [{ key: 'memberships', label: t('library.menuDecks'), onSelect: run(() => onMemberships(record.p)) }]
+      : [{ key: 'edit', label: t('actions.edit'), onSelect: run(() => onEdit(record.p, record.cue)) }, { key: 'delete', label: t('actions.delete'), disabled: ['running', 'cancelling'].includes(state.batch?.status), onSelect: run(() => onDelete(record.p, record.cue)) }];
     const ids = kind === 'deck' ? state.decks.map(d => d.id) : kind === 'proposition' ? deck.propositionIds.filter(id => state.propositions.some(p => p.id === id && !p.archived)) : p.cues.filter(c => !c.deleted).map(c => c.id);
     const id = kind === 'deck' ? deck.id : kind === 'proposition' ? p.id : cue.id;
-    for (const direction of [-1, 1]) items.push({ key: direction === -1 ? 'up' : 'down', label: direction === -1 ? 'Move up' : 'Move down', disabled: !!query || ids.indexOf(id) + direction < 0 || ids.indexOf(id) + direction >= ids.length, onSelect: run(() => onReorder({ kind, id, ...(kind === 'proposition' ? { deckId: deck.id } : kind === 'cue' ? { propositionId: p.id } : {}), direction })) });
+    for (const direction of [-1, 1]) items.push({ key: direction === -1 ? 'up' : 'down', label: direction === -1 ? t('library.moveUp') : t('library.moveDown'), disabled: !!query || ids.indexOf(id) + direction < 0 || ids.indexOf(id) + direction >= ids.length, onSelect: run(() => onReorder({ kind, id, ...(kind === 'proposition' ? { deckId: deck.id } : kind === 'cue' ? { propositionId: p.id } : {}), direction })) });
     return items;
   }
   function content(key) {
@@ -89,7 +89,7 @@ export function mountLibraryTree({ ctx, container, signal, button, onReview, onP
       if (record.kind === 'deck') {
         if (!drafts.has(record.deck.id)) drafts.set(record.deck.id, { editing: false, value: '', saving: false, error: '' });
         draft = drafts.get(record.deck.id);
-        input = el('input', 'fc-tree-rename'); input.type = 'text'; input.setAttribute('aria-label', 'Deck name');
+        input = el('input', 'fc-tree-rename'); input.type = 'text'; input.setAttribute('aria-label', t('field.deckName'));
         error = el('span', 'fc-tree-rename-error'); error.setAttribute('role', 'alert');
         const commit = async () => {
           if (!live() || mountSignal.aborted || !draft.editing || draft.saving) return;
@@ -109,24 +109,24 @@ export function mountLibraryTree({ ctx, container, signal, button, onReview, onP
           if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); void commit(); }
         }, { signal: mountSignal });
         labelSlot.append(error);
-        button(root, 'Review', run(() => onReview({ deckIds: [record.deck.id] })), mountSignal, { size: 'xs', variant: 'outline' });
+        button(root, t('actions.review'), run(() => onReview({ deckIds: [record.deck.id] })), mountSignal, { size: 'xs', variant: 'outline' });
       } else if (record.kind === 'cue') {
         label.addEventListener('click', event => { event.stopPropagation(); onPreview(record.p, record.cue, record.archive); }, { signal: mountSignal });
       }
       if (!record.archive && record.kind !== 'archive') {
         const more = el('span', 'fc-tree-more'); root.append(more);
         if (record.kind === 'deck' || record.kind === 'proposition') {
-          const label = record.kind === 'deck' ? 'Create card' : 'Add cue';
+          const label = record.kind === 'deck' ? t('card.create') : t('cue.add');
           button(more, label, run(() => record.kind === 'deck' ? onCreateCard(record.deck) : onCreateCue(record.p, record.deck)), mountSignal, { icon: plusIcon, iconOnly: true, size: 'icon-sm', variant: 'ghost', title: label });
         }
-        const actionsLabel = `${record.kind === 'deck' ? 'Deck' : record.kind === 'proposition' ? 'Proposition' : 'Cue'} actions`;
+        const actionsLabel = record.kind === 'deck' ? t('library.deckActions') : record.kind === 'proposition' ? t('library.propositionActions') : t('library.cueActions');
         button(more, actionsLabel, () => { ctx.ui.openMenu(more, { label: actionsLabel, items: menuItems(record) }, { signal: mountSignal }); }, mountSignal, { icon: settingsIcon, iconOnly: true, size: 'icon-sm', variant: 'ghost', title: actionsLabel });
       }
       function refresh() {
-        const title = record.kind === 'deck' ? record.deck.name : record.kind === 'proposition' ? record.p.name : record.kind === 'cue' ? record.cue.question.replace(/\s+/g, ' ').trim() || 'Cue' : 'Archive';
+        const title = record.kind === 'deck' ? record.deck.name : record.kind === 'proposition' ? record.p.name : record.kind === 'cue' ? record.cue.question.replace(/\s+/g, ' ').trim() || t('library.cueFallback') : t('library.archive');
         label.textContent = title;
-        label.title = record.kind === 'proposition' ? record.p.statement || title : record.kind === 'deck' ? 'Rename deck' : title;
-        metadata.textContent = record.kind === 'proposition' ? `${record.p.cues.filter(c => !c.deleted).length} cues` : '';
+        label.title = record.kind === 'proposition' ? record.p.statement || title : record.kind === 'deck' ? t('library.renameDeck') : title;
+        metadata.textContent = record.kind === 'proposition' ? t('library.cueCount', { count: record.p.cues.filter(c => !c.deleted).length }) : '';
         if (draft) {
           label.hidden = draft.editing;
           if (draft.editing) { if (input.parentElement !== labelSlot) labelSlot.prepend(input); if (input.value !== draft.value) input.value = draft.value; }
@@ -143,10 +143,10 @@ export function mountLibraryTree({ ctx, container, signal, button, onReview, onP
     if (records.has(key)) Object.assign(records.get(key), data); else records.set(key, data);
     return content(key);
   }
-  let tree = ctx.ui.mountTree(inner, { label: 'Flashcards library', header: 'Name', rows: [], columns: [
-    { key: 'propositions', header: 'Propositions', width: '6.5rem', align: 'right' },
-    { key: 'due', header: 'Due', width: '3rem', align: 'right' },
-    { key: 'new', header: 'New today', width: '6rem', align: 'right' },
+  let tree = ctx.ui.mountTree(inner, { label: t('library.treeLabel'), header: t('library.headerName'), rows: [], columns: [
+    { key: 'propositions', header: t('library.headerPropositions'), width: '6.5rem', align: 'right' },
+    { key: 'due', header: t('library.headerDue'), width: '3rem', align: 'right' },
+    { key: 'new', header: t('library.headerNewToday'), width: '6rem', align: 'right' },
   ] }, { signal });
   function render() {
     if (!live() || !state) return;
@@ -178,12 +178,12 @@ export function mountLibraryTree({ ctx, container, signal, button, onReview, onP
     }
     const archived = state.propositions.filter(p => p.archived && includes(p));
     if (archived.length) {
-      const r = row('archive', { kind: 'archive', archive: true }, 'Archive', null, archived.map(p => proposition(p, null, true)));
+      const r = row('archive', { kind: 'archive', archive: true }, t('library.archive'), null, archived.map(p => proposition(p, null, true)));
       r.cells = { propositions: String(archived.length) }; rows.push(r);
     }
     tree.update({ rows });
     for (const [key, refresh] of mounted) if (seen.has(key)) refresh();
-    empty.textContent = rows.length ? '' : query ? 'No matching flashcards.' : 'No flashcards yet. Pick knowledge or upload a file above to generate your first cues.';
+    empty.textContent = rows.length ? '' : query ? t('library.emptyFiltered') : t('library.empty');
     empty.hidden = !!rows.length;
     onSelection(selection());
   }

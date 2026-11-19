@@ -29,9 +29,11 @@ The SDK is **type-only**. Call the contexts supplied by LearnHarness, not runtim
 - [contracts-models](contracts-models.md)
 - [contracts-plan](contracts-plan.md)
 - [events](events.md)
+- [i18n-locales](i18n-locales.md)
 - [native-messages](native-messages.md)
 - [phases](phases.md)
 - [plugin-agents](plugin-agents.md)
+- [plugin-i18n](plugin-i18n.md)
 - [plugin-problems](plugin-problems.md)
 - [plugin-questions](plugin-questions.md)
 - [plugin-shortcuts](plugin-shortcuts.md)
@@ -49,6 +51,7 @@ The SDK is **type-only**. Call the contexts supplied by LearnHarness, not runtim
 
 | Type | Module |
 | --- | --- |
+| [AppLocale](i18n-locales.md#applocale) | `i18n-locales` |
 | [ChatListItem](contracts-chat.md#chatlistitem) | `contracts-chat` |
 | [ChatRecord](contracts-chat.md#chatrecord) | `contracts-chat` |
 | [CoverageEntry](contracts-graph.md#coverageentry) | `contracts-graph` |
@@ -100,9 +103,11 @@ The SDK is **type-only**. Call the contexts supplied by LearnHarness, not runtim
 | [PluginKnowledgePickerProps](plugin-ui.md#pluginknowledgepickerprops) | `plugin-ui` |
 | [PluginLearningData](plugins.md#pluginlearningdata) | `plugins` |
 | [PluginManifest](plugins.md#pluginmanifest) | `plugins` |
+| [PluginManifestTranslations](plugins.md#pluginmanifesttranslations) | `plugins` |
 | [PluginMarkdownProps](plugin-ui.md#pluginmarkdownprops) | `plugin-ui` |
 | [PluginMenuItem](plugin-ui.md#pluginmenuitem) | `plugin-ui` |
 | [PluginMenuProps](plugin-ui.md#pluginmenuprops) | `plugin-ui` |
+| [PluginMessages](plugin-i18n.md#pluginmessages) | `plugin-i18n` |
 | [PluginModelPickerProps](plugin-ui.md#pluginmodelpickerprops) | `plugin-ui` |
 | [PluginModelSpec](plugin-agents.md#pluginmodelspec) | `plugin-agents` |
 | [PluginModelValue](plugin-ui.md#pluginmodelvalue) | `plugin-ui` |
@@ -172,6 +177,7 @@ The SDK is **type-only**. Call the contexts supplied by LearnHarness, not runtim
 | [PluginToolRenderer](plugins.md#plugintoolrenderer) | `plugins` |
 | [PluginToolRenderProps](plugins.md#plugintoolrenderprops) | `plugins` |
 | [PluginTools](plugins.md#plugintools) | `plugins` |
+| [PluginTranslate](plugin-i18n.md#plugintranslate) | `plugin-i18n` |
 | [PluginTreeColumn](plugin-tree.md#plugintreecolumn) | `plugin-tree` |
 | [PluginTreeContent](plugin-tree.md#plugintreecontent) | `plugin-tree` |
 | [PluginTreeProps](plugin-tree.md#plugintreeprops) | `plugin-tree` |
@@ -221,6 +227,7 @@ These are reachable through public data, event, inheritance or helper-type relat
 - [ServerEvent](events.md#serverevent) — `events`
 - [ServerEvents](events.md#serverevents) — `events`
 - [ServerEventType](events.md#servereventtype) — `events`
+- [APP_LOCALES](i18n-locales.md#app_locales) — `i18n-locales`
 - [LhMarkerMessage](native-messages.md#lhmarkermessage) — `native-messages`
 - [LhMessage](native-messages.md#lhmessage) — `native-messages`
 - [Phase3](phases.md#phase3) — `phases`
@@ -256,4 +263,4 @@ These are reachable through public data, event, inheritance or helper-type relat
 
 Standard JavaScript/DOM types (`Promise`, `AbortSignal`, `File`, `HTMLElement`, and utility types) use their standard contracts. Pi model/messages/tools and TypeBox schemas use the exact peer versions declared by the bundled SDK's `package.json`. Supply those peers when typechecking; they are development types, not permission to import private LearnHarness runtime modules.
 
-Coverage: **140 public types**, **57 supporting declarations**, **894 declared member signatures/variants**. Generation contains no build timestamps or absolute source paths.
+Coverage: **144 public types**, **58 supporting declarations**, **896 declared member signatures/variants**. Generation contains no build timestamps or absolute source paths.

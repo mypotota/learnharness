@@ -21,7 +21,7 @@ it("registered renderers override native plugin dispatch/result bodies; disable 
 	const seen: PluginToolRenderProps[] = [];
 	// No network, plugin files, or provider calls: the real manager imports an in-memory fixture.
 	const owner = createPluginWindowOwner({
-		reservedCodeBlockLanguages: [], reservedToolNames: [], pathname: () => "/", navigate() {},
+		reservedCodeBlockLanguages: [], reservedToolNames: [], pathname: () => "/", navigate() {}, locale: () => "en",
 		fetch: async () => Response.json({ plugins: [info], directory: "/fixture/plugins" }),
 		importModule: async () => ({ activate(ctx) {
 			ctx.registerToolRenderer({ toolName: "check_sources", mount(container, props) { seen.push(props); container.textContent = props.background ? "Custom result body" : "Custom dispatch body"; } });

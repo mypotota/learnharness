@@ -13,12 +13,12 @@
  * createSideChatService directly.
  */
 import { parseSideAskInput, SideChatInputError } from "@/src/core";
-import { sideChats } from "@/src/server";
+import { sideChats, errorJson } from "@/src/server";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
 	const { id } = await ctx.params;
 	const listed = sideChats.list(id);
-	if (!listed) return Response.json({ error: "Unknown chat" }, { status: 404 });
+	if (!listed) return errorJson("chats.unknown", 404);
 	return Response.json(listed);
 }
 

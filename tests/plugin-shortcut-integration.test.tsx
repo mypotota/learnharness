@@ -115,7 +115,7 @@ test("Settings rebinds, clears and resets plugin overrides in the existing keyma
 
 test("manager captures shortcut metadata, validates defaults, preserves action busy/errors and fences stale page readers", async () => {
 	let ctx!: PluginFrontendContext, complete!: () => void, pathname = "/";
-	const manager = new PluginFrontendManager({ fetch: async () => Response.json({}), importModule: async () => ({ activate(value) { ctx = value; } }), pathname: () => pathname, navigate() {} });
+	const manager = new PluginFrontendManager({ fetch: async () => Response.json({}), importModule: async () => ({ activate(value) { ctx = value; } }), pathname: () => pathname, navigate() {}, locale: () => "en" });
 	manager.reconcile([pluginInfo()]); await tick();
 	try {
 		assert.throws(() => ctx.registerAction({ id: "bad", name: "Bad", shortcut: { scope: "app", defaultBinding: "tab" }, run() {} }), /shortcut/);

@@ -612,15 +612,35 @@ function applyZoom(win, factor) {
 }
 
 /** macOS needs an application menu with the Edit roles — without one,
- *  Cmd+C/V/A do nothing in the renderer. Everything else stays minimal. */
-function installMenu() {
+ *  Cmd+C/V/A do nothing in the renderer. Everything else stays minimal.
+ *  Our labels follow the app's UI language; Electron/OS-localized roles
+ *  (undo, copy, reload…) keep Chromium's own labels. */
+const MENU_LABELS = {
+	en: require("./i18n/en.json"),
+	"zh-CN": require("./i18n/zh-CN.json"),
+};
+
+/** The app's UI language is stored in the web settings file; absence (or a
+ *  corrupt file) means "follow the system" — main stays English there. */
+function menuLocale() {
+	try {
+		const settings = JSON.parse(fs.readFileSync(path.join(DATA_DIR(), "settings.json"), "utf8"));
+		const locale = settings?.general?.locale;
+		return locale === "en" || locale === "zh-CN" ? locale : "en";
+	} catch {
+		return "en";
+	}
+}
+
+function installMenu(locale) {
+	const t = MENU_LABELS[locale ?? menuLocale()] ?? MENU_LABELS.en;
 	const template = [
 		{
 			label: app.name,
 			submenu: [
 				{ role: "about" },
 				// Manual checks report their result in Settings → General.
-				{ label: "Check for Updates…", click: () => checkForUpdatesFromMenu() },
+				{ label: t["appMenu.checkForUpdates"], click: () => checkForUpdatesFromMenu() },
 				{ type: "separator" },
 				{ role: "hide" },
 				{ role: "hideOthers" },
@@ -628,9 +648,9 @@ function installMenu() {
 				{ role: "quit" },
 			],
 		},
-		{ label: "Edit", submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
+		{ label: t["menu.edit"], submenu: [{ role: "undo" }, { role: "redo" }, { type: "separator" }, { role: "cut" }, { role: "copy" }, { role: "paste" }, { role: "selectAll" }] },
 		{
-			label: "View",
+			label: t["menu.view"],
 			submenu: [
 				{ role: "reload" },
 				{ role: "toggleDevTools" },
@@ -640,17 +660,17 @@ function installMenu() {
 				// traffic lights. The renderer's --lh-zoom depends on
 				// hearing every change.
 				{
-					label: "Actual Size",
+					label: t["view.actualSize"],
 					accelerator: "CommandOrControl+0",
 					click: () => applyZoom(BrowserWindow.getAllWindows()[0], 1),
 				},
 				{
-					label: "Zoom In",
+					label: t["view.zoomIn"],
 					accelerator: "CommandOrControl+Plus",
 					click: () => zoomStep(BrowserWindow.getAllWindows()[0], +1),
 				},
 				{
-					label: "Zoom Out",
+					label: t["view.zoomOut"],
 					accelerator: "CommandOrControl+-",
 					click: () => zoomStep(BrowserWindow.getAllWindows()[0], -1),
 				},
@@ -795,6 +815,17 @@ async function main() {
 	// The renderer's first paint can race did-finish-load — it asks for
 	// the current factor itself (mirrors "lh:zoom" pushes).
 	ipcMain.handle("lh:zoom:get", (event) => BrowserWindow.fromWebContents(event.sender)?.webContents.getZoomFactor() ?? 1);
+	// The desktop's language (i18n wave, 2026-11-19): the renderer asks the
+	// OS what it speaks, so "follow the system" means the SYSTEM's language
+	// and not the browser's guess. Read-only, no trust gate needed beyond the
+	// app's own window.
+	ipcMain.handle("lh:locale", () => app.getLocale());
+	// The renderer reports each UI-language change (i18n wave); the menu
+	// rebuilds with the renderer's locale, which is authoritative for what
+	// the user just picked (settings.json may not be flushed yet).
+	ipcMain.on("lh:menu-locale", (_event, locale) => {
+		if (locale === "en" || locale === "zh-CN") installMenu(locale);
+	});
 	ipcMain.on("lh:expand-window", (event) => {
 		const win = BrowserWindow.fromWebContents(event.sender);
 		if (!win) return;

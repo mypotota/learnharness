@@ -1,5 +1,6 @@
 import type { PluginCodeBlockProps } from "learnharness-plugin-api";
-import { CACHE_BYTES, CACHE_ENTRIES, LABELS, checkSource, checkSvgSize, type Language } from "./contract.ts";
+import { CACHE_BYTES, CACHE_ENTRIES, checkSource, checkSvgSize, type Language } from "./contract.ts";
+import { type Translator } from "./i18n.ts";
 import { sanitizeSvg } from "./svg.ts";
 import { TexRunner } from "./tex-runner.ts";
 
@@ -26,12 +27,12 @@ export class RenderCache {
   clear(): void { this.entries.clear(); this.bytes = 0; }
 }
 
-async function smiles(source: string, signal: AbortSignal): Promise<string> {
+async function smiles(source: string, signal: AbortSignal, t: Translator): Promise<string> {
   const { default: SmilesDrawer } = await import("rich-code-blocks-smiles");
   signal.throwIfAborted();
   // One molecule, not a reaction, disconnected fragment list, or multiline prose.
   const molecule = source.trim();
-  if (/[\s.>]/.test(molecule)) throw new Error("Use one SMILES molecule per block, without prose or reaction notation.");
+  if (/[\s.>]/.test(molecule)) throw new Error(t("errors.oneSmilesMolecule"));
   return new Promise((resolve, reject) => SmilesDrawer.parse(molecule, tree => {
     try {
       const drawer = new SmilesDrawer.SvgDrawer({ scale: 1 });
@@ -48,24 +49,25 @@ async function smiles(source: string, signal: AbortSignal): Promise<string> {
   }, reject));
 }
 
-async function abc(source: string, signal: AbortSignal): Promise<string> {
+async function abc(source: string, signal: AbortSignal, t: Translator): Promise<string> {
   // Import only the visual rendering entry, not synth/MIDI/editor APIs. The build
   // omits its unused viewport resize listeners (documented in THIRD-PARTY.md).
   const { default: renderAbc } = await import("abcjs/src/api/abc_tunebook_svg.js");
   signal.throwIfAborted();
   for (const header of ["X", "M", "L", "K"]) if (!new RegExp(`^${header}:[\\t ]*\\S`, "m").test(source)) {
-    throw new Error("ABC requires X:, M:, L: and K: headers.");
+    throw new Error(t("errors.abcHeaders"));
   }
-  if ((source.match(/^X:/gm) ?? []).length !== 1) throw new Error("Use one ABC tune per block.");
+  if ((source.match(/^X:/gm) ?? []).length !== 1) throw new Error(t("errors.oneAbcTune"));
   const target = document.createElement("div");
   const tunes = renderAbc(target, source, { staffwidth: 700, add_classes: false, selectTypes: false, dragging: false });
   const svg = target.querySelector("svg");
-  if (tunes.length !== 1 || !svg || !svg.querySelector("path")) throw new Error("ABC did not produce a score.");
+  if (tunes.length !== 1 || !svg || !svg.querySelector("path")) throw new Error(t("errors.abcNoScore"));
   return new XMLSerializer().serializeToString(svg);
 }
 
 export class RenderService {
   private readonly cache = new RenderCache();
+  constructor(private readonly t: Translator) {}
   private tex?: TexRunner;
   private disposed = false;
   private readonly lifetimes = new Set<() => void>();
@@ -93,21 +95,21 @@ export class RenderService {
     if (block.incomplete) return dispose;
     try {
       const language = block.language as Language;
-      checkSource(language, block.source);
+      checkSource(language, block.source, this.t);
       const key = language + "\0" + block.source;
       let output = this.cache.get(key);
       if (!output) {
-        if (language === "smiles") output = await smiles(block.source, controller.signal);
-        else if (language === "abc") output = await abc(block.source, controller.signal);
+        if (language === "smiles") output = await smiles(block.source, controller.signal, this.t);
+        else if (language === "abc") output = await abc(block.source, controller.signal, this.t);
         else if (language === "tikz") {
-          this.tex ??= new TexRunner(new URL("./assets/tex-worker.js", import.meta.url), new URL("./assets/tex/", import.meta.url));
+          this.tex ??= new TexRunner(new URL("./assets/tex-worker.js", import.meta.url), new URL("./assets/tex/", import.meta.url), undefined, undefined, this.t);
           output = await this.tex.render(block.source, controller.signal);
-        } else throw new Error("Unsupported code-block language.");
+        } else throw new Error(this.t("errors.unsupportedLanguage"));
       }
       if (this.disposed || controller.signal.aborted) { dispose(); return dispose; }
-      checkSvgSize(output);
-      const label = language === "smiles" ? LABELS.chemicalStructures : language === "abc" ? LABELS.musicalNotation : LABELS.technicalDiagrams;
-      const safe = sanitizeSvg(output, label, language);
+      checkSvgSize(output, this.t);
+      const label = language === "smiles" ? this.t("labels.chemicalStructures") : language === "abc" ? this.t("labels.musicalNotation") : this.t("labels.technicalDiagrams");
+      const safe = sanitizeSvg(output, label, language, this.t);
       this.cache.set(key, output);
       root.classList.add("rich-code-blocks--rendered");
       root.replaceChildren(safe);

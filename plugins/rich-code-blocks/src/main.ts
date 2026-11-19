@@ -1,9 +1,11 @@
 import type { PluginFrontendContext, PluginSettingsSchema, PluginWidgetHandle } from "learnharness-plugin-api";
-import { FAMILIES, LABELS, LANGUAGES, parseSettings, type Family, type Settings } from "./contract.ts";
+import { FAMILIES, LANGUAGES, parseSettings, type Family, type Settings } from "./contract.ts";
+import { createTranslator } from "./i18n.ts";
 import { RenderService } from "./render.ts";
 
 export async function activate(ctx: PluginFrontendContext): Promise<() => void> {
-  const rendering = new RenderService();
+  const t = createTranslator(ctx.locale);
+  const rendering = new RenderService(t);
   let current: Settings | undefined;
   let registration: PluginWidgetHandle<PluginSettingsSchema> | undefined;
   const renderers = new Map<Family, () => void>();
@@ -11,7 +13,7 @@ export async function activate(ctx: PluginFrontendContext): Promise<() => void> 
   let disposed = false;
   let resync: Promise<void> = Promise.resolve();
   const rows = (settings: Settings): PluginSettingsSchema["rows"] => FAMILIES.map(family => ({
-    key: family, type: "toggle" as const, label: LABELS[family], value: settings[family],
+    key: family, type: "toggle" as const, label: t(`labels.${family}`), value: settings[family],
     async onChange(enabled: boolean) {
       const accepted = await ctx.call("set-family", { family, enabled });
       if (!disposed && !ctx.signal.aborted) apply(accepted);

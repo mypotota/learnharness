@@ -1,3 +1,5 @@
+import { createTranslator, type Translator } from "./i18n.ts";
+
 export const FAMILIES = ["chemicalStructures", "musicalNotation", "technicalDiagrams"] as const;
 export type Family = typeof FAMILIES[number];
 export type Language = "smiles" | "abc" | "tikz";
@@ -13,9 +15,6 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({
 });
 export const LANGUAGES: Record<Family, Language> = {
   chemicalStructures: "smiles", musicalNotation: "abc", technicalDiagrams: "tikz",
-};
-export const LABELS: Record<Family, string> = {
-  chemicalStructures: "Chemical structures", musicalNotation: "Musical notation", technicalDiagrams: "Technical diagrams",
 };
 export const INSTRUCTIONS: Record<Family, string> = {
   chemicalStructures: "For chemical structures, use a smiles fenced code block containing one SMILES molecule. Write explanations outside the block; do not author raw SVG.",
@@ -35,6 +34,8 @@ export const TEX_TIMEOUT_MS = 10_000;
 export const TEX_QUEUE_LIMIT = 16;
 export const CACHE_ENTRIES = 32;
 export const CACHE_BYTES = 8 * 1024 * 1024;
+
+const english = createTranslator("en");
 
 export function parseSettings(value: unknown): Settings {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid Rich code blocks settings.");
@@ -59,11 +60,13 @@ export function parseChange(value: unknown): { family: Family; enabled: boolean 
   return { family: record.family as Family, enabled: record.enabled };
 }
 
-export function checkSource(language: Language, source: string): void {
-  if (new TextEncoder().encode(source).byteLength > SOURCE_LIMITS[language]) throw new Error(`${language} source exceeds the ${SOURCE_LIMITS[language] / 1024} KiB limit.`);
-  if (!source.trim()) throw new Error(`Empty ${language} source.`);
+export function checkSource(language: Language, source: string, t: Translator = english): void {
+  if (new TextEncoder().encode(source).byteLength > SOURCE_LIMITS[language]) {
+    throw new Error(t("errors.sourceLimit", { language, limit: SOURCE_LIMITS[language] / 1024 }));
+  }
+  if (!source.trim()) throw new Error(t("errors.emptySource", { language }));
 }
 
-export function checkSvgSize(svg: string): void {
-  if (new TextEncoder().encode(svg).byteLength > SVG_LIMIT) throw new Error("Rendered SVG exceeds the 2 MiB limit.");
+export function checkSvgSize(svg: string, t: Translator = english): void {
+  if (new TextEncoder().encode(svg).byteLength > SVG_LIMIT) throw new Error(t("errors.svgSize"));
 }

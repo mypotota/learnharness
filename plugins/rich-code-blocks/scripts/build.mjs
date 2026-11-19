@@ -54,7 +54,7 @@ const backend = await build({
 });
 for (const result of [browser, worker, backend]) {
   for (const input of Object.keys(result.metafile.inputs)) {
-    if (!input.startsWith("src/") && !input.startsWith("node_modules/") && !input.startsWith("node-only:")) throw new Error(`Unexpected runtime input: ${input}`);
+    if (!input.startsWith("src/") && !input.startsWith("messages/") && !input.startsWith("node_modules/") && !input.startsWith("node-only:")) throw new Error(`Unexpected runtime input: ${input}`);
   }
 }
 for (const file of ["manifest.json", "README.md", "LICENSE", "THIRD-PARTY.md"]) fs.copyFileSync(path.join(root, file), path.join(output, file));

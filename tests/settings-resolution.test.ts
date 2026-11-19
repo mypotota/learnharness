@@ -38,7 +38,9 @@ describe("resolveSettings", () => {
 
 	it("null record (first boot): non-model knobs land on factory defaults; every model view is EMPTY", () => {
 		const eff = resolveSettings(null);
-		assert.deepEqual(eff.general, { autoUpdate: true });
+		// The locale stays UNRESOLVED (undefined = "follow the system"): the
+		// resolution layer is pure and cannot know the OS's language.
+		assert.deepEqual(eff.general, { autoUpdate: true, locale: undefined });
 		assert.deepEqual(eff.agent.tools, {});
 		assert.deepEqual(eff.agent.prompts, {});
 		assert.deepEqual(eff.agent.search, {});

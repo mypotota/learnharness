@@ -1,4 +1,5 @@
 import type { PluginFrontendContext, PluginSessionViewInput } from "learnharness-plugin-api";
+import { createTranslator, type Translator } from "./i18n.ts";
 
 export interface Reference {
   label: string;
@@ -9,19 +10,20 @@ export interface Reference {
   extra?: string;
 }
 /** Only the host-selected, learner-facing projection is consumed here. */
-export function referenceFor(input: PluginSessionViewInput): Reference | undefined {
-  if (input.type === "thinking") return { label: "Problem", question: input.problem.statement, options: [], multiple: false };
+export function referenceFor(input: PluginSessionViewInput, t: Translator = createTranslator("en")): Reference | undefined {
+  if (input.type === "thinking") return { label: t("reference.problem"), question: input.problem.statement, options: [], multiple: false };
   if (input.type !== "answer" || !input.revealed || !input.available) return undefined;
   const question = input.question;
   const tool = question.occurrence.toolName;
-  const label = tool === "probe" ? "Probe" : tool === "recall" ? "Recall" : question.kind === "quiz"
-    ? question.questionType === "predict" ? "Prediction" : "Check" : question.kind === "explain" ? "Explain" : "Question";
+  const label = tool === "probe" ? t("reference.probe") : tool === "recall" ? t("reference.recall") : question.kind === "quiz"
+    ? question.questionType === "predict" ? t("reference.prediction") : t("reference.check")
+    : question.kind === "explain" ? t("reference.explain") : t("reference.question");
   return {
     label, question: question.question, context: question.context, multiple: question.mode === "multi-select",
     options: question.mode === "text" ? [] : question.options.map(option => ({ label: option.label,
       ...(question.kind !== "quiz" && option.description ? { description: option.description } : {}) })),
-    ...(question.mode !== "text" && question.kind === "quiz" ? { extra: "I don't know" } :
-      question.mode !== "text" && question.kind === "ask" ? { extra: "Other…" } : {}),
+    ...(question.mode !== "text" && question.kind === "quiz" ? { extra: t("reference.dontKnow") } :
+      question.mode !== "text" && question.kind === "ask" ? { extra: t("reference.other") } : {}),
   };
 }
 export function mountReference(root: HTMLElement, ctx: PluginFrontendContext, reference: Reference, signal: AbortSignal): {
@@ -29,9 +31,10 @@ export function mountReference(root: HTMLElement, ctx: PluginFrontendContext, re
 } {
   const handles: { dispose(): void }[] = [];
   const slots: HTMLElement[] = [];
+  const t = createTranslator(ctx.locale);
   const label = document.createElement("div");
   label.className = "drawing-pad-reference-label";
-  label.textContent = reference.label + (reference.multiple ? " · select all that apply" : "");
+  label.textContent = reference.label + (reference.multiple ? t("reference.multipleSuffix") : "");
   root.append(label);
   const markdown = (parent: HTMLElement, text: string, className: string) => {
     if (!text) return;

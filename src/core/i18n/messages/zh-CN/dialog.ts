@@ -1,0 +1,36 @@
+/**
+ * THE DIALOG AREA (简体中文): 与 en/dialog.ts 一一对应。
+ */
+
+import type { Translated } from "../types.ts";
+import type { dialog as EN_DIALOG } from "../en/dialog.ts";
+
+export const dialog = {
+	tryAgain: "重试",
+	deleting: "正在删除…",
+	deleteSourcesTitle: "删除所选来源和文件夹？",
+	deleteSourcesAria: "删除来源",
+	sourceContributions: "将移除这些来源对命题与推理链的贡献。由其他来源支持的知识会保留；仅由这些来源支持的知识将被移除。",
+	importedRecordsNote: "导入的来源记录会被移除，但磁盘上的原始文件绝不会被改动。所选文件夹仅在为空时才会移除；保留会话所需的文件夹会保留。",
+	alsoDeleteSessions: "同时删除所选的 {count} 个会话",
+	sessionsUncheckedNote: "不勾选时，对话会保留在当前文件夹中，之后仍可再次抽取。无论是否勾选，它们的图谱贡献与抽取覆盖都会被清除。勾选后还会永久删除其消息与后台任务。",
+	andMore: "，以及另外 {count} 项",
+	deleteSessionTitle: "删除会话？",
+	deleteSessionAria: "删除会话",
+	sessionPermanence: "将永久移除该会话——其消息、后台任务与抽取记录都会删除。它添加到图谱中的内容会保留，除非你在下方勾选。此操作无法撤销。",
+	tracesTitle: "同时移除其图谱轨迹",
+	tracesBody: "该会话的主题、链接与事件也会离开图谱。其他会话或导入笔记也覆盖到的主题会保留；仅由该会话创建的主题将被彻底移除。",
+	deleteFailedStatus: "删除失败（{status}）",
+	deleteFailedNetwork: "删除失败——网络错误，请重试。",
+	deleteNodeAria: "删除节点",
+	deleteNodeTitle: "删除节点？",
+	deleteNodesTitle: "删除 {count} 个节点？",
+	removeFoldersTitle: "移除空文件夹？",
+	deleteNodesFoldersTitle: "删除节点并移除空文件夹？",
+	folderNames: "空文件夹：{names}",
+	nodePermanence: "将永久删除该节点——此操作无法撤销。",
+	nodesPermanence: "将永久删除全部 {count} 个节点——此操作无法撤销。",
+	folderOnlyNote: "仅移除上述空文件夹。",
+	keptNote: "会话、导入的来源记录以及非空文件夹会保留。",
+	extractionRetryLine: "抽取正在进行——等活动栏清空后再试。",
+} satisfies Translated<typeof EN_DIALOG>;

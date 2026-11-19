@@ -32,6 +32,7 @@ import { BACKGROUND_MODEL_ROLES, CACHE_RETENTIONS, COMPACTION_THRESHOLD_FLOOR, C
 import { WRITABLE_TOOL_KEYS } from "../core/pending.ts";
 import { isSearchEngineId, SEARCH_ENGINES } from "../core/search.ts";
 import { isDictationLanguage } from "../core/dictation.ts";
+import { APP_LOCALES, isAppLocale } from "../core/i18n/locales.ts";
 import { parseFileAccessSettings } from "../core/file-access.ts";
 
 /** Parsed-or-rejected — `ok: false` carries the 400's error message. */
@@ -83,7 +84,7 @@ function asRecord(body: unknown): Record<string, unknown> | null {
 	return body as Record<string, unknown>;
 }
 
-/** general: { autoUpdate?: boolean } */
+/** general: { autoUpdate?: boolean, locale?: AppLocale } */
 export function parseGeneralSettingsBody(body: unknown): SettingsBodyResult<GeneralSettings> {
 	const raw = asRecord(body);
 	if (!raw) return { ok: false, error: "Invalid JSON body" };
@@ -93,6 +94,15 @@ export function parseGeneralSettingsBody(body: unknown): SettingsBodyResult<Gene
 			return { ok: false, error: "autoUpdate must be a boolean" };
 		}
 		settings.autoUpdate = raw.autoUpdate;
+	}
+	// The locale is strict on the network path: a locale the app cannot
+	// render is a broken setting, so it is refused (400), not stored.
+	// OMITTING the key clears the choice → "follow the system" again.
+	if (raw.locale !== undefined) {
+		if (!isAppLocale(raw.locale)) {
+			return { ok: false, error: "locale must be one of: " + APP_LOCALES.join(", ") };
+		}
+		settings.locale = raw.locale;
 	}
 	return { ok: true, settings };
 }

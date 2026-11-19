@@ -8,6 +8,7 @@ import { deepgramListenUrl, type DictationLanguage } from "@/src/core";
 import { useDictationLanguage } from "@/components/dictation-preference";
 import { setDictationActive } from "@/components/dictation-state";
 import { dispatchFocusedPluginShortcut } from "@/components/plugin-input-focus";
+import { useT } from "@/components/i18n/i18n-provider";
 export { isDictationActive } from "@/components/dictation-state";
 
 /**
@@ -152,10 +153,10 @@ function registerController(id: symbol, controller: { primary: boolean; toggle: 
  *  (zero-keys wave, owner 2026-09-25). */
 async function mintFreshToken(): Promise<string> {
 	const res = await fetch("/api/stt/token");
-	const data = (await res.json()) as { token?: string; message?: string };
+	const data = (await res.json()) as { token?: string; message?: string; error?: string };
 	if (!res.ok || !data.token) {
 		if (res.status === 503) throw new Error(DICTATION_KEYLESS);
-		throw new Error(data.message ?? `token route ${res.status}`);
+		throw new Error(data.error ?? data.message ?? `token route ${res.status}`);
 	}
 	return data.token;
 }
@@ -758,6 +759,7 @@ export function useDictation({ append, destination = "primary", disabled = false
  */
 export function DictationBar({ dictation, disabled = false }: { dictation: Dictation; disabled?: boolean }) {
 	const { phase, error, levelRef, toggle, active, clearError, blocked } = dictation;
+	const t = useT();
 	const { open: openSettings } = useSettingsDialog();
 	/** The keyless click (zero-keys wave, owner dictation trio): the errored
 	 *  idle button deep-links Settings → Keys → the Deepgram row and clears
@@ -809,7 +811,7 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 		return (
 			<Hint
 				// The error line truncates in the button; its tooltip reveals it.
-				label={error ?? "Dictate"}
+				label={error ?? t("composer.dictate")}
 				action={error ? undefined : "toggle-dictation"}
 				side="top"
 			>
@@ -824,12 +826,12 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 						}
 					}}
 					disabled={disabled || blocked}
-					aria-label={error ? `Dictation failed: ${error}` : "Start dictation"}
+					aria-label={error ? t("composer.dictationFailed", { error }) : t("composer.startDictation")}
 					data-testid="dictation-toggle"
 					className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border/50 bg-card/50 text-xs text-muted-foreground/70 shadow-lg backdrop-blur transition-colors hover:border-border hover:text-muted-foreground"
 				>
 					<MicIcon className="size-3.5" />
-					<span className="max-w-full truncate">{error ?? "Dictate"}</span>
+					<span className="max-w-full truncate">{error ?? t("composer.dictate")}</span>
 				</button>
 			</Hint>
 		);
@@ -837,17 +839,17 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 
 	return (
 		<div className="flex w-full min-w-0 items-center gap-2" data-testid="dictation-bar">
-			<Hint label="Stop dictation (Esc)" side="top">
+			<Hint label={t("composer.stopDictationEsc")} side="top">
 				<button
 					type="button"
 					onClick={toggle}
 					disabled={phase === "stopping"}
-					aria-label="Stop dictation"
+					aria-label={t("composer.stopDictation")}
 					data-testid="dictation-toggle"
 					className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-destructive/10 px-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
 				>
 					{phase === "stopping" ? <Loader2Icon className="size-3.5 animate-spin" /> : <MicIcon className="size-3.5" />}
-					Stop
+					{t("composer.stop")}
 				</button>
 			</Hint>
 			<span className="size-1.5 shrink-0 animate-pulse rounded-full bg-destructive" aria-hidden />

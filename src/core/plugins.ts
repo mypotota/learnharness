@@ -25,6 +25,9 @@ export const PLUGIN_API_VERSION = 1 as const;
 export const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** Release activation/mount resources; the host accepts synchronous or async cleanup. */
 export type PluginCleanup = () => void | Promise<void>;
+/** Host-owned manifest metadata translations, keyed by a shipped app locale.
+ * Purely additive: manifests without it behave exactly as before. */
+export type PluginManifestTranslations = Partial<Record<"en" | "zh-CN", { name?: string; description?: string }>>;
 export interface PluginManifest {
 	apiVersion: 1;
 	id: string;
@@ -33,11 +36,19 @@ export interface PluginManifest {
 	minAppVersion: string;
 	description?: string;
 	author?: string;
+	/** Localized name/description for the settings list; the plugin's own runtime
+	 * copy is bundled in the module, not here. Absent keys fall back to English. */
+	translations?: PluginManifestTranslations;
 	/** Bundled browser ES module. Entry paths must not address plugin data. */
 	main?: string;
 	/** Bundled Node CommonJS module. Node builtins are available. */
 	backend?: string;
 	styles?: string;
+}
+/** Resolve a manifest label for a locale: the locale's translation, else the
+ * manifest's own field (the English fallback). */
+export function resolveManifestLabel(manifest: PluginManifest, locale: "en" | "zh-CN", field: "name" | "description"): string | undefined {
+	return manifest.translations?.[locale]?.[field] ?? manifest[field];
 }
 export interface PluginInfo {
 	id: string;
@@ -275,6 +286,10 @@ export interface PluginToolRenderer {
  * subscriptions and UI expire with this activation; backend work is server-owned. */
 export interface PluginFrontendContext {
 	readonly manifest: PluginManifest;
+	/** The host's effective UI locale at activation time ("en" or "zh-CN");
+	 * pick bundled strings with it. A later language change applies to the
+	 * next activation, not this window's already-mounted UI. */
+	readonly locale: import("./i18n/locales.ts").AppLocale;
 	/** Aborted when this window's activation ends. Use shorter per-mount signals
 	 * for view widgets and cooperative async work. */
 	readonly signal: AbortSignal;
@@ -399,7 +414,25 @@ export function parsePluginManifest(value: unknown, folder: string, appVersion: 
 	}
 	if (!m.main && !m.backend) throw new Error("A plugin needs a main or backend entry");
 	if (m.styles && !m.main) throw new Error("styles requires a frontend main entry");
+	let translations: PluginManifestTranslations | undefined;
+	if (m.translations !== undefined) {
+		if (!m.translations || typeof m.translations !== "object" || Array.isArray(m.translations)) throw new Error("Manifest translations must be an object keyed by locale");
+		translations = {};
+		for (const [locale, fields] of Object.entries(m.translations as Record<string, unknown>)) {
+			if (locale !== "en" && locale !== "zh-CN") throw new Error(`Manifest translations key must be a shipped locale (en or zh-CN): ${locale}`);
+			if (!fields || typeof fields !== "object" || Array.isArray(fields)) throw new Error(`Manifest translations.${locale} must be an object`);
+			const f = fields as Record<string, unknown>;
+			const entry: { name?: string; description?: string } = {};
+			for (const field of ["name", "description"] as const) {
+				if (f[field] !== undefined && (typeof f[field] !== "string" || !(f[field] as string).trim())) throw new Error(`Manifest translations.${locale}.${field} must be a nonempty string`);
+				if (f[field] !== undefined) entry[field] = f[field] as string;
+			}
+			if (entry.name !== undefined || entry.description !== undefined) translations[locale as keyof PluginManifestTranslations] = entry;
+		}
+		if (!Object.keys(translations).length) translations = undefined;
+	}
 	return { apiVersion: 1, id: folder, name: m.name as string, version: m.version as string, minAppVersion: m.minAppVersion as string,
 		...(m.description !== undefined ? { description: m.description as string } : {}), ...(m.author !== undefined ? { author: m.author as string } : {}),
+		...(translations ? { translations } : {}),
 		...(m.main ? { main: m.main as string } : {}), ...(m.backend ? { backend: m.backend as string } : {}), ...(m.styles ? { styles: m.styles as string } : {}) };
 }

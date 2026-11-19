@@ -1,4 +1,5 @@
 import { checkSource, checkSvgSize, TEX_QUEUE_LIMIT, TEX_TIMEOUT_MS } from "./contract.ts";
+import { createTranslator, type Translator } from "./i18n.ts";
 
 interface Job {
   id: number;
@@ -24,12 +25,13 @@ export class TexRunner {
     private readonly resourcesUrl: URL,
     private readonly createWorker: (url: URL) => WorkerLike = url => new Worker(url, { type: "module" }),
     private readonly timeoutMs = TEX_TIMEOUT_MS,
+    private readonly t: Translator = createTranslator("en"),
   ) {}
 
   render(source: string, signal: AbortSignal): Promise<string> {
     if (this.disposed || signal.aborted) return Promise.reject(cancelled());
-    try { checkSource("tikz", source); } catch (error) { return Promise.reject(error); }
-    if (this.queue.length >= TEX_QUEUE_LIMIT) return Promise.reject(new Error("The TeX render queue is full (16 waiting jobs)."));
+    try { checkSource("tikz", source, this.t); } catch (error) { return Promise.reject(error); }
+    if (this.queue.length >= TEX_QUEUE_LIMIT) return Promise.reject(new Error(this.t("errors.texQueueFull")));
     return new Promise((resolve, reject) => {
       const job: Job = { id: ++this.nextId, source, signal, resolve, reject, abort: () => {
         if (this.current === job) this.finish(undefined, cancelled(), true);
@@ -49,7 +51,7 @@ export class TexRunner {
     const job = this.queue.shift();
     if (!job) return;
     this.current = job;
-    this.timer = setTimeout(() => this.finish(undefined, new Error(`TeX rendering exceeded ${this.timeoutMs / 1000} seconds.`), true), this.timeoutMs);
+    this.timer = setTimeout(() => this.finish(undefined, new Error(this.t("errors.texTimeout", { seconds: this.timeoutMs / 1000 })), true), this.timeoutMs);
     try {
       if (!this.worker) {
         const worker = this.createWorker(this.workerUrl);
@@ -57,15 +59,15 @@ export class TexRunner {
         worker.onmessage = event => {
           if (this.worker !== worker || !this.current || event.data?.id !== this.current.id) return;
           if (typeof event.data.svg === "string") {
-            try { checkSvgSize(event.data.svg); this.finish(event.data.svg); }
+            try { checkSvgSize(event.data.svg, this.t); this.finish(event.data.svg); }
             catch (error) { this.finish(undefined, error as Error, true); }
-          } else this.finish(undefined, new Error(typeof event.data.error === "string" ? event.data.error : "Invalid TeX worker result."), true);
+          } else this.finish(undefined, new Error(typeof event.data.error === "string" ? event.data.error : this.t("errors.invalidTexWorkerResult")), true);
         };
-        worker.onerror = event => { event.preventDefault(); if (this.worker === worker) this.finish(undefined, new Error("The TeX worker failed."), true); };
-        worker.onmessageerror = () => { if (this.worker === worker) this.finish(undefined, new Error("The TeX worker returned an unreadable result."), true); };
+        worker.onerror = event => { event.preventDefault(); if (this.worker === worker) this.finish(undefined, new Error(this.t("errors.texWorkerFailed")), true); };
+        worker.onmessageerror = () => { if (this.worker === worker) this.finish(undefined, new Error(this.t("errors.unreadableTexWorkerResult")), true); };
       }
       this.worker.postMessage({ id: job.id, source: job.source, resourcesUrl: this.resourcesUrl.href });
-    } catch (error) { this.finish(undefined, error instanceof Error ? error : new Error("Could not start TeX rendering."), true); }
+    } catch (error) { this.finish(undefined, error instanceof Error ? error : new Error(this.t("errors.couldNotStartTex")), true); }
   }
 
   private finish(svg?: string, error?: Error, terminate = false): void {

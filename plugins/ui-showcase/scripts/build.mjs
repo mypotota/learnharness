@@ -25,7 +25,7 @@ const result = await build({
   metafile: true,
 });
 for (const input of Object.keys(result.metafile.inputs)) {
-  if (!input.startsWith("src/")) throw new Error(`Unexpected runtime input in UI Showcase bundle: ${input}`);
+  if (!input.startsWith("src/") && !input.startsWith("messages/")) throw new Error(`Unexpected runtime input in UI Showcase bundle: ${input}`);
 }
 for (const [from, to] of [["manifest.json", "manifest.json"], ["src/styles.css", "styles.css"], ["README.md", "README.md"], ["LICENSE", "LICENSE"]]) {
   fs.copyFileSync(path.join(root, from), path.join(output, to));

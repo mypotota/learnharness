@@ -53,7 +53,7 @@ async function fixture(frontend?: PluginFrontendModule) {
 	const root = createRoot(document.querySelector("#root")!);
 	const owner = frontend ? createPluginWindowOwner({
 		fetch: async () => Response.json({ plugins: [plugin], directory: "/fixture/plugins" }),
-		importModule: async () => frontend, pathname: () => "/", navigate() {},
+		importModule: async () => frontend, pathname: () => "/", navigate() {}, locale: () => "en",
 	}) : null;
 	if (owner) window.__lhPluginWindow = owner;
 	const router = { bfcacheId: "fixture", back() {}, forward() {}, refresh() {}, hmrRefresh() {}, push() {}, replace() {}, async prefetch() {} };

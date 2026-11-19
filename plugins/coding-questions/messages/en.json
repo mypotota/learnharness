@@ -1,0 +1,17 @@
+{
+  "result.unavailable": "Saved test result is unavailable.",
+  "result.testsPassed": "Tests passed",
+  "result.testsFailed": "Tests failed",
+  "result.testsNotRun": "Could not run tests",
+  "result.output": "Test output",
+  "result.stdout": "Stdout",
+  "result.stderr": "Stderr",
+  "result.truncated": "{label} truncated at 64 KiB.",
+  "solution.title": "Model solution",
+  "disclosure.hide": "Hide {label}",
+  "editor.codeAnswer": "Code answer",
+  "editor.submittedCode": "Submitted code",
+  "editor.plainText": "Plain text",
+  "editor.loadingHighlighting": "Loading highlighting…",
+  "diagnostics.syntaxProblem": "Syntax problem."
+}

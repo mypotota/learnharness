@@ -1,0 +1,36 @@
+/**
+ * THE DIALOG AREA (i18n wave, 2026-11-19): the destructive-confirmation
+ * dialogs — deleting sources, sessions and graph nodes.
+ *
+ * The English text IS today's wording, exactly.
+ */
+
+export const dialog = {
+	tryAgain: "Try again",
+	deleting: "Deleting…",
+	deleteSourcesTitle: "Delete selected sources and folders?",
+	deleteSourcesAria: "Delete sources",
+	sourceContributions: "Removes these sources’ contributions to propositions and reasoning chains. Knowledge supported by other sources survives; knowledge supported only by these sources is removed.",
+	importedRecordsNote: "Imported source records are removed, but original files on disk are never changed. Selected folders are removed only when empty; folders needed by kept sessions remain.",
+	alsoDeleteSessions: "Also delete the {count, plural, one {# selected session} other {# selected sessions}}",
+	sessionsUncheckedNote: "Unchecked, conversations stay in their current folders and can be extracted again. Either way, their graph contributions and extraction coverage are cleared. Checking this also permanently deletes their messages and background jobs.",
+	andMore: ", and {count} more",
+	deleteSessionTitle: "Delete session?",
+	deleteSessionAria: "Delete session",
+	sessionPermanence: "This permanently removes the session — its messages, background jobs, and extraction records. Everything it added to the graph stays unless you check below. This cannot be undone.",
+	tracesTitle: "Also remove its graph traces",
+	tracesBody: "This session's topics, links, and events leave the graph too. Topics other sessions or imported notes also cover survive; topics only this session created are removed entirely.",
+	deleteFailedStatus: "Delete failed ({status})",
+	deleteFailedNetwork: "Delete failed — network error. Try again.",
+	deleteNodeAria: "Delete node",
+	deleteNodeTitle: "Delete node?",
+	deleteNodesTitle: "Delete {count} nodes?",
+	removeFoldersTitle: "Remove empty folders?",
+	deleteNodesFoldersTitle: "Delete nodes and remove empty folders?",
+	folderNames: "Empty folders: {names}",
+	nodePermanence: "This permanently deletes the node — this cannot be undone.",
+	nodesPermanence: "This permanently deletes all {count} nodes — this cannot be undone.",
+	folderOnlyNote: "Only the named empty folders are removed. ",
+	keptNote: "Sessions, imported source records, and non-empty folders are kept.",
+	extractionRetryLine: "An extraction is running — try again when the activity dock drains.",
+} as const;

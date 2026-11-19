@@ -13,15 +13,12 @@
  * /auth/grant (their docs, token-based auth FAQ) — plain read/transcribe
  * keys return FORBIDDEN here.
  */
-import { keyValue } from "@/src/server";
+import { errorJson, keyValue } from "@/src/server";
 
 export async function GET() {
 	const key = keyValue("DEEPGRAM_API_KEY");
 	if (!key) {
-		return Response.json(
-			{ message: "No DEEPGRAM_API_KEY — add it to auth.json (desktop) or .env.local (dev)." },
-			{ status: 503 },
-		);
+		return errorJson("stt.no_api_key", 503);
 	}
 
 	try {
@@ -32,17 +29,14 @@ export async function GET() {
 		});
 		if (!res.ok) {
 			const detail = await res.text();
-			return Response.json(
-				{ message: `Deepgram token grant failed (${res.status}): ${detail.slice(0, 200)}` },
-				{ status: 502 },
-			);
+			return errorJson("stt.grant_failed", 502, { status: String(res.status), detail: detail.slice(0, 200) });
 		}
 		const data = (await res.json()) as { access_token?: string };
 		if (!data.access_token) {
-			return Response.json({ message: "Deepgram grant returned no token" }, { status: 502 });
+			return errorJson("stt.grant_no_token", 502);
 		}
 		return Response.json({ token: data.access_token });
 	} catch {
-		return Response.json({ message: "Deepgram unreachable" }, { status: 502 });
+		return errorJson("stt.unreachable", 502);
 	}
 }

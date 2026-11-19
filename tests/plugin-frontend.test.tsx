@@ -37,6 +37,7 @@ function fixture(frontend: PluginFrontendModule, overrides: Partial<PluginHost> 
 		},
 		importModule: async url => { imports.push(url); return frontend; },
 		pathname: () => "/chat/existing", navigate: path => { navigations.push(path); },
+		locale: () => "en",
 		...overrides,
 	};
 	return { manager: new PluginFrontendManager(host), host, imports, navigations, requests };

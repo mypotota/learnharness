@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { openPageSurfaceDemo, openSurfaceDemo } from "../src/surfaces.ts";
+import { createTranslator } from "../src/i18n.ts";
 import { createFixture } from "./fixture.ts";
 
 for (const origin of ["native", "page"] as const) test(`${origin} surface demo uses public background updates and local Reset restores dimmed without reopening`, async () => {
   const f = createFixture();
   try {
     const target = Object.freeze({}) as Parameters<typeof openSurfaceDemo>[1];
-    const handle = origin === "native" ? openSurfaceDemo(f.ui, target, f.controller.signal) : openPageSurfaceDemo(f.ui, f.controller.signal, () => {});
+    const handle = origin === "native" ? openSurfaceDemo(f.ui, target, f.controller.signal, createTranslator("en")) : openPageSurfaceDemo(f.ui, f.controller.signal, createTranslator("en"), () => {});
     const surface = f.records.find(entry => entry.method === "openSurface")!;
     assert.equal(handle, surface.handle);
     assert.equal(surface.target, origin === "native" ? target : undefined);

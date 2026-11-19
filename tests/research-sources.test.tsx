@@ -37,16 +37,16 @@ describe("research sources", () => {
 
 	it("a saved non-http(s) source renders as plain text, never a link", () => {
 		const html = renderToStaticMarkup(
-			ResearchBriefCard({
-				output: {
+			<ResearchBriefCard
+				output={{
 					brief: "Brief.",
 					sources: [
 						{ title: "attacker.example", url: "smb://attacker.example/share" },
 						{ title: "Calculator", url: "file:///System/Applications/Calculator.app" },
 						{ title: "Wikipedia", url: "https://en.wikipedia.org/wiki/Entropy" },
 					],
-				},
-			}),
+				}}
+			/>,
 		);
 		assert.ok(!html.includes("smb://") && !html.includes("file://"), html);
 		assert.match(html, /attacker\.example/);

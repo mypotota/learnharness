@@ -2,6 +2,7 @@ import type { PluginFrontendContext } from "learnharness-plugin-api";
 import { captureBackground } from "./capture.ts";
 import { mountReference } from "./reference.ts";
 import type { Draft } from "./state.ts";
+import { createTranslator } from "./i18n.ts";
 
 // Read the selected app palette, not the operating system's color preference.
 const colors = ["--background", "--foreground", "--muted-foreground", "--border", "--lh-ink-strong", "--lh-ink-italic",
@@ -16,6 +17,7 @@ export function appPalette(): { key: string; mode: "dark" | "light" } {
 /** Repaint only the saved original reference, never the current session input.
  * Offscreen mounts are temporary; the sheet's dimensions and camera stay fixed. */
 export async function recolorReference(draft: Draft, ctx: PluginFrontendContext, signal: AbortSignal): Promise<Pick<Draft, "background" | "backgroundColor">> {
+  const t = createTranslator(ctx.locale);
   const root = document.createElement("div"); root.className = "drawing-pad-root";
   root.style.cssText = "position:fixed;inset:auto;left:-100000px;top:0;pointer-events:none";
   root.setAttribute("aria-hidden", "true"); document.body.append(root);
@@ -27,7 +29,7 @@ export async function recolorReference(draft: Draft, ctx: PluginFrontendContext,
     reference.style.width = `${draft.width}px`; root.append(reference);
     mounted = mountReference(reference, ctx, draft.reference, signal);
     const captured = await captureBackground(reference, mounted.slots, draft.width, draft.height, backgroundColor, signal,
-      { width: draft.width, height: draft.height, pixelRatio: draft.pixelRatio });
+      { width: draft.width, height: draft.height, pixelRatio: draft.pixelRatio }, t);
     return { background: captured.background, backgroundColor: captured.backgroundColor };
   } finally { mounted?.dispose(); root.remove(); }
 }

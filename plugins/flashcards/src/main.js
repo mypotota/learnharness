@@ -2,6 +2,7 @@ import { mountLibraryTree } from './library-tree.js';
 import { createReviewController } from './review.js';
 import { mountDashboard } from './dashboard.js';
 import { buildPracticeCards } from './practice-queue.js';
+import { createTranslator } from './i18n.js';
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -10,11 +11,9 @@ const el = (tag, className, text) => {
   return node;
 };
 const message = error => error instanceof Error ? error.message : String(error);
-const generationSummary = (source, tokens) => `${source} (approximately ${tokens.toLocaleString()} input tokens)`;
 const uuid = () => crypto.randomUUID();
 const flashcardsIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 4h12a1 1 0 0 1 1 1v12"/><rect x="3" y="8" width="14" height="13" rx="2"/><path d="M6 12h8M6 16h5"/></svg>';
 const trashIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>';
-const deletionBlocked = 'Wait for generation to finish or cancel it before deleting content.';
 const activeBatch = batch => batch && ['running', 'pending', 'queued', 'cancelling'].includes(batch.status);
 function lifetime(...parents) {
   const controller = new AbortController();
@@ -23,21 +22,23 @@ function lifetime(...parents) {
   controller.signal.addEventListener('abort', () => { for (const parent of parents) parent.removeEventListener('abort', abort); }, { once: true });
   return controller;
 }
-function parseSteps(text) {
-  const parts = text.trim().split(/[\s,]+/).filter(Boolean);
-  if (!parts.length) throw new Error('Enter at least one learning step.');
-  const values = parts.map(part => {
-    const match = /^(\d+)(m|h)?$/i.exec(part);
-    if (!match) throw new Error('Use whole minutes, separated by spaces or commas (for example 1m 10m).');
-    return Number(match[1]) * (match[2]?.toLowerCase() === 'h' ? 60 : 1);
-  });
-  if (values.some((value, index) => !Number.isSafeInteger(value) || value <= 0 || value >= 1440 || (index > 0 && value <= values[index - 1]))) throw new Error('Steps must be increasing positive whole minutes, each shorter than one day.');
-  return values;
-}
-
 export function activate(ctx) {
+  const t = createTranslator(ctx.locale);
+  const deletionBlocked = t('error.deletionBlocked');
+  const generationSummary = (source, tokens) => t('generate.summary', { source, tokens: tokens.toLocaleString() });
+  function parseSteps(text) {
+    const parts = text.trim().split(/[\s,]+/).filter(Boolean);
+    if (!parts.length) throw new Error(t('settings.errorEmptySteps'));
+    const values = parts.map(part => {
+      const match = /^(\d+)(m|h)?$/i.exec(part);
+      if (!match) throw new Error(t('settings.errorStepFormat'));
+      return Number(match[1]) * (match[2]?.toLowerCase() === 'h' ? 60 : 1);
+    });
+    if (values.some((value, index) => !Number.isSafeInteger(value) || value <= 0 || value >= 1440 || (index > 0 && value <= values[index - 1]))) throw new Error(t('settings.errorStepRange'));
+    return values;
+  }
   for (const capability of ['mountMarkdown', 'mountKnowledgePicker', 'mountTree', 'openSurface', 'openMenu']) {
-    if (typeof ctx.ui?.[capability] !== 'function') throw new Error(`Flashcards requires a newer LearnHarness host with ctx.ui.${capability}. Please update LearnHarness.`);
+    if (typeof ctx.ui?.[capability] !== 'function') throw new Error(t('error.hostRequired', { capability }));
   }
   let snapshot = null, refreshing = null, refreshAgain = false;
   const observers = new Set(), registrations = [];
@@ -90,7 +91,7 @@ export function activate(ctx) {
     if (type !== 'textarea') input.type = type;
     input.value = String(value ?? ''); wrapper.append(el('span', 'fc-label', label), input); parent.append(wrapper); return input;
   }
-  function dialog(title, parentSignal, build, closeLabel = 'Cancel') {
+  function dialog(title, parentSignal, build, closeLabel = t('actions.cancel')) {
     let handle;
     handle = ctx.ui.openDialog({ title, content: (container, hostSignal) => {
       const scope = lifetime(parentSignal, hostSignal, ctx.signal), root = el('div', 'fc-root fc-dialog');
@@ -109,18 +110,18 @@ export function activate(ctx) {
       const preflight = await ctx.call('preflight', { propositionIds: [...propositionIds] });
       if (signal.aborted) return;
       const requestId = uuid();
-      dialog('Generate flashcards', signal, ({ root, actions, signal: ds, run, close }) => {
-        root.append(el('p', 'fc-muted', generationSummary(`${preflight.propositionCount} propositions`, preflight.estimatedTokens)));
-        button(actions, 'Start', run(async () => { if (await mutate('start-generation', { preflightId: preflight.id, requestId }, ds)) close(); }), ds, { variant: 'default' });
+      dialog(t('generate.title'), signal, ({ root, actions, signal: ds, run, close }) => {
+        root.append(el('p', 'fc-muted', generationSummary(t('generate.propositionCount', { count: preflight.propositionCount }), preflight.estimatedTokens)));
+        button(actions, t('actions.start'), run(async () => { if (await mutate('start-generation', { preflightId: preflight.id, requestId }, ds)) close(); }), ds, { variant: 'default' });
       });
     } catch (error) { if (!signal.aborted) showError(message(error)); }
   }
   function confirmFileGeneration(preflight, notices, signal, onStarted) {
     const requestId = uuid();
-    dialog('Generate flashcards', signal, ({ root, actions, signal: ds, run, close }) => {
+    dialog(t('generate.title'), signal, ({ root, actions, signal: ds, run, close }) => {
       root.append(el('p', 'fc-muted fc-file-name', generationSummary(preflight.name, preflight.estimatedTokens)));
       for (const notice of notices) root.append(el('p', 'fc-muted', notice));
-      button(actions, 'Start', run(async () => {
+      button(actions, t('actions.start'), run(async () => {
         const state = await ctx.call('start-generation', { preflightId: preflight.id, requestId });
         if (ds.aborted) return;
         publish(state); close(); onStarted(state);
@@ -129,16 +130,16 @@ export function activate(ctx) {
   }
   function cueFields(root, cue = {}) {
     return {
-      question: field(root, 'Question (Markdown)', cue.question, 'textarea'),
-      answer: field(root, 'Answer (Markdown)', cue.answer, 'textarea'),
+      question: field(root, t('field.question'), cue.question, 'textarea'),
+      answer: field(root, t('field.answer'), cue.answer, 'textarea'),
     };
   }
   function createCard(deck, proposition, signal, onCreated) {
     const requestId = uuid();
-    dialog(proposition ? 'Add cue' : 'Create card', signal, ({ root, actions, signal: ds, run, close }) => {
-      const name = proposition ? null : field(root, 'Name', '');
+    dialog(proposition ? t('cue.add') : t('card.create'), signal, ({ root, actions, signal: ds, run, close }) => {
+      const name = proposition ? null : field(root, t('field.name'), '');
       const { question, answer } = cueFields(root);
-      button(actions, 'Save', run(async () => {
+      button(actions, t('actions.save'), run(async () => {
         const created = await ctx.call(proposition ? 'create-cue' : 'create-card', {
           ...(proposition ? { propositionId: proposition.id } : { deckId: deck.id, name: name.value }),
           question: question.value, answer: answer.value, requestId,
@@ -149,9 +150,9 @@ export function activate(ctx) {
     });
   }
   function editCue(proposition, cue, signal) {
-    dialog('Edit cue', signal, ({ root, actions, signal: ds, run, close }) => {
+    dialog(t('cue.edit'), signal, ({ root, actions, signal: ds, run, close }) => {
       const { question, answer } = cueFields(root, cue);
-      button(actions, 'Save', run(async () => { if (await mutate('save-cue', { propositionId: proposition.id, cueId: cue.id, question: question.value, answer: answer.value, version: proposition.version }, ds)) close(); }), ds, { variant: 'default' });
+      button(actions, t('actions.save'), run(async () => { if (await mutate('save-cue', { propositionId: proposition.id, cueId: cue.id, question: question.value, answer: answer.value, version: proposition.version }, ds)) close(); }), ds, { variant: 'default' });
     });
   }
   function deleteContents(scope, signal) {
@@ -162,14 +163,14 @@ export function activate(ctx) {
     const selected = new Set(scope.cueIds ?? []);
     const count = state.propositions.reduce((n, p) => n + p.cues.filter(c => !c.deleted && (whole.has(p.id) || selected.has(c.id))).length, 0);
     const request = { ...structuredClone(scope), revision: state.revision, requestId: uuid() };
-    dialog('Delete flashcards?', signal, ({ root, actions, signal: ds, run, close }) => {
+    dialog(t('delete.title'), signal, ({ root, actions, signal: ds, run, close }) => {
       const description = el('div', 'fc-muted fc-delete-description'); root.append(description);
-      markdown(description, `${count} ${count === 1 ? 'cue' : 'cues'} will be deleted from every deck. Targets with no remaining cues and their schedules will be removed. Past review statistics are kept. Learning-graph data is unchanged.`, ds);
+      markdown(description, t(count === 1 ? 'delete.summaryOne' : 'delete.summaryMany', { count }), ds);
       const label = el('label', 'fc-check'), emptyDecks = el('input'); emptyDecks.type = 'checkbox'; emptyDecks.checked = true;
-      label.append(emptyDecks, document.createTextNode('Delete empty decks too')); root.append(label);
+      label.append(emptyDecks, document.createTextNode(t('delete.emptyDecks'))); root.append(label);
       const note = el('p', 'fc-muted'); root.append(note);
       let submitted;
-      const confirm = button(actions, 'Delete', run(async () => {
+      const confirm = button(actions, t('actions.delete'), run(async () => {
         submitted ??= { ...request, deleteEmptyDecks: emptyDecks.checked };
         emptyDecks.disabled = true;
         if (await mutate('delete-content', submitted, ds)) close();
@@ -190,37 +191,37 @@ export function activate(ctx) {
       markdown(card, cue.question, ds); markdown(answer, cue.answer, ds);
       card.append(answer); root.append(card);
       if (!archive) {
-        button(actions, 'Edit', () => { close(); editCue(proposition, cue, signal); }, ds);
-        const deletion = button(actions, 'Delete', () => { close(); deleteCue(proposition, cue, signal); }, ds, { variant: 'destructive' });
+        button(actions, t('actions.edit'), () => { close(); editCue(proposition, cue, signal); }, ds);
+        const deletion = button(actions, t('actions.delete'), () => { close(); deleteCue(proposition, cue, signal); }, ds, { variant: 'destructive' });
         observe(current => { if (!current) return; const blocked = !!activeBatch(current.batch); deletion.update({ disabled: blocked, title: blocked ? deletionBlocked : undefined }); }, ds);
       }
-    }, 'Close');
+    }, t('actions.close'));
   }
   function memberships(proposition, state, signal) {
-    dialog('Deck memberships', signal, ({ root, actions, signal: ds, run, close }) => {
-      root.append(el('p', 'fc-muted', 'Memberships share the same cues, schedule, and history. Keep at least one deck.'));
+    dialog(t('deck.memberships'), signal, ({ root, actions, signal: ds, run, close }) => {
+      root.append(el('p', 'fc-muted', t('memberships.note')));
       const choices = state.decks.map(deck => {
         const label = el('label', 'fc-check'), input = el('input'); input.type = 'checkbox'; input.checked = proposition.memberships.includes(deck.id);
         label.append(input, document.createTextNode(deck.name)); root.append(label); return { id: deck.id, input };
       });
-      button(actions, 'Save memberships', run(async () => {
+      button(actions, t('memberships.save'), run(async () => {
         const deckIds = choices.filter(choice => choice.input.checked).map(choice => choice.id);
-        if (!deckIds.length) throw new Error('Choose at least one deck.');
+        if (!deckIds.length) throw new Error(t('error.chooseDeck'));
         if (await mutate('set-memberships', { propositionId: proposition.id, deckIds }, ds)) close();
       }), ds, { variant: 'default' });
     });
   }
   function editDeck(deck, signal) {
-    dialog(deck ? 'Deck settings' : 'Create deck', signal, ({ root, actions, signal: ds, run, close }) => {
-      const name = field(root, 'Deck name', deck?.name || ''), limit = deck ? field(root, 'New propositions per day', deck.newLimit, 'number') : null;
+    dialog(deck ? t('deck.settings') : t('deck.create'), signal, ({ root, actions, signal: ds, run, close }) => {
+      const name = field(root, t('field.deckName'), deck?.name || ''), limit = deck ? field(root, t('field.newPropositionsPerDay'), deck.newLimit, 'number') : null;
       if (limit) { limit.min = '0'; limit.step = '1'; }
-      button(actions, deck ? 'Save' : 'Create', run(async () => {
-        if (!name.value.trim()) throw new Error('Enter a deck name.');
+      button(actions, deck ? t('actions.save') : t('actions.create'), run(async () => {
+        if (!name.value.trim()) throw new Error(t('error.enterDeckName'));
         const input = deck ? { id: deck.id, name: name.value, newLimit: Number(limit.value) } : { name: name.value };
         if (await mutate(deck ? 'save-deck' : 'create-deck', input, ds)) close();
       }), ds, { variant: 'default' });
       if (deck) {
-        const deletion = button(actions, 'Delete deck…', () => { close(); deleteContents({ deckIds: [deck.id] }, signal); }, ds, { variant: 'destructive' });
+        const deletion = button(actions, t('actions.deleteDeck'), () => { close(); deleteContents({ deckIds: [deck.id] }, signal); }, ds, { variant: 'destructive' });
         observe(current => { if (!current) return; const blocked = !!activeBatch(current.batch); deletion.update({ disabled: blocked, title: blocked ? deletionBlocked : undefined }); }, ds);
       }
     });
@@ -232,11 +233,11 @@ export function activate(ctx) {
     error.setAttribute('role', 'alert');
     const showError = text => { if (!signal.aborted) error.textContent = text; };
     const guarded = action => async () => { try { await action(); } catch (cause) { showError(message(cause)); } };
-    const review = createReviewController({ ctx, signal, button, markdown, onRated: () => { void refresh(); } });
+    const review = createReviewController({ ctx, signal, button, markdown, t, onRated: () => { void refresh(); } });
     const practice = scope => review.openPractice(buildPracticeCards(snapshot, scope));
     const pickerSlot = el('div', 'fc-picker'), fileInput = el('input'), fileStatus = el('p', 'fc-muted fc-file-status');
     const canConvertFiles = typeof ctx.documents?.toMarkdown === 'function';
-    fileInput.type = 'file'; fileInput.multiple = false; fileInput.hidden = true; fileInput.setAttribute('aria-label', 'Choose a file for flashcards');
+    fileInput.type = 'file'; fileInput.multiple = false; fileInput.hidden = true; fileInput.setAttribute('aria-label', t('aria.chooseFile'));
     fileStatus.setAttribute('role', 'status');
     let generationIds = [], generationButton, fileButton, filePreparing = false, cleanupMessage = null;
     function updateGenerationButtons() {
@@ -248,41 +249,41 @@ export function activate(ctx) {
       generationIds = [...ids]; picker.update({ value: generationIds }); updateGenerationButtons();
     } }, { signal }), signal);
     toolbar.append(pickerSlot);
-    generationButton = button(toolbar, 'Generate', () => confirmGeneration(generationIds, signal, showError), signal, { disabled: true, variant: 'default' });
-    fileButton = button(toolbar, 'Generate from file…', () => fileInput.click(), signal, { disabled: !canConvertFiles, title: canConvertFiles ? undefined : 'Update LearnHarness to generate flashcards from files.' });
+    generationButton = button(toolbar, t('actions.generate'), () => confirmGeneration(generationIds, signal, showError), signal, { disabled: true, variant: 'default' });
+    fileButton = button(toolbar, t('actions.generateFromFile'), () => fileInput.click(), signal, { disabled: !canConvertFiles, title: canConvertFiles ? undefined : t('error.updateForFiles') });
     toolbar.append(fileInput);
     const deckPanel = el('section', 'fc-deck-panel'), deckToolbar = el('div', 'fc-deck-toolbar');
-    deckPanel.setAttribute('aria-label', 'Decks');
+    deckPanel.setAttribute('aria-label', t('aria.decks'));
     const searchLabel = el('label', 'fc-search'), search = el('input', 'fc-input');
-    search.type = 'search'; search.placeholder = 'Search decks, propositions, and cues'; search.setAttribute('aria-label', 'Search flashcards'); searchLabel.append(search);
+    search.type = 'search'; search.placeholder = t('library.searchPlaceholder'); search.setAttribute('aria-label', t('aria.search')); searchLabel.append(search);
     const batchArea = el('div'), selectionActions = el('div', 'fc-actions fc-selection-actions'), selectionCount = el('span', 'fc-muted'), treeSlot = el('div', 'fc-tree');
     const scopeActions = el('div', 'fc-actions fc-scope-actions'), selectionSummary = el('div', 'fc-selection-summary');
     selectionSummary.append(selectionCount); selectionActions.append(scopeActions, selectionSummary);
     let selection = { cueIds: [], propositionIds: [], count: 0 }, tree, hasPracticeCards = false;
     const currentScope = () => selection.count ? { cueIds: [...selection.cueIds], propositionIds: [...selection.propositionIds] } : {};
-    const reviewAction = button(scopeActions, 'Review all', () => review.open(currentScope()), signal);
-    const practiceAction = button(scopeActions, 'Practice all', () => practice(currentScope()), signal, { disabled: true });
+    const reviewAction = button(scopeActions, t('actions.reviewAll'), () => review.open(currentScope()), signal);
+    const practiceAction = button(scopeActions, t('actions.practiceAll'), () => practice(currentScope()), signal, { disabled: true });
     const deleteSlot = el('span', 'fc-delete-selected');
-    const deleteAction = button(deleteSlot, 'Delete selected', () => deleteContents({ cueIds: [...selection.cueIds], propositionIds: [...selection.emptyPropositionIds], deckIds: [...selection.emptyDeckIds] }, signal), signal, { icon: trashIcon, iconOnly: true, size: 'icon-sm', variant: 'ghost', title: 'Delete selected' });
-    const clearSelection = button(selectionSummary, 'Clear', () => tree.clearSelection(), signal, { variant: 'ghost', disabled: true });
+    const deleteAction = button(deleteSlot, t('actions.deleteSelected'), () => deleteContents({ cueIds: [...selection.cueIds], propositionIds: [...selection.emptyPropositionIds], deckIds: [...selection.emptyDeckIds] }, signal), signal, { icon: trashIcon, iconOnly: true, size: 'icon-sm', variant: 'ghost', title: t('actions.deleteSelected') });
+    const clearSelection = button(selectionSummary, t('actions.clear'), () => tree.clearSelection(), signal, { variant: 'ghost', disabled: true });
     const updateSelection = () => {
       const selected = selection.count > 0;
-      selectionCount.textContent = `${selection.count} selected`;
-      reviewAction.update({ label: selected ? 'Review selected' : 'Review all', disabled: selected && !selection.cueIds.length });
-      practiceAction.update({ label: selected ? 'Practice selected' : 'Practice all', disabled: selected ? !selection.cueIds.length : !hasPracticeCards });
+      selectionCount.textContent = t('selection.count', { count: selection.count });
+      reviewAction.update({ label: selected ? t('actions.reviewSelected') : t('actions.reviewAll'), disabled: selected && !selection.cueIds.length });
+      practiceAction.update({ label: selected ? t('actions.practiceSelected') : t('actions.practiceAll'), disabled: selected ? !selection.cueIds.length : !hasPracticeCards });
       const blocked = !!activeBatch(snapshot?.batch);
-      deleteAction.update({ disabled: !selected || blocked, title: blocked ? deletionBlocked : 'Delete selected' });
+      deleteAction.update({ disabled: !selected || blocked, title: blocked ? deletionBlocked : t('actions.deleteSelected') });
       if (selected) scopeActions.append(deleteSlot); else deleteSlot.remove();
       clearSelection.update({ disabled: !selected });
     };
     updateSelection();
     deckToolbar.append(searchLabel);
-    button(deckToolbar, 'Create deck', () => editDeck(null, signal), signal);
+    button(deckToolbar, t('deck.create'), () => editDeck(null, signal), signal);
     deckPanel.append(deckToolbar, selectionActions, treeSlot);
     const dashboardSlot = el('div', 'fc-dashboard-slot');
     root.append(toolbar, fileStatus, error, batchArea, deckPanel, dashboardSlot); container.append(root);
-    const dashboard = mountDashboard({ container: dashboardSlot, signal });
-    tree = mountLibraryTree({ ctx, container: treeSlot, signal, button,
+    const dashboard = mountDashboard({ container: dashboardSlot, signal, t });
+    tree = mountLibraryTree({ ctx, container: treeSlot, signal, button, t,
       onReview: scope => review.open(scope), onPreview: (p, cue, archive) => previewCue(p, cue, archive, signal),
       onEdit: (p, cue) => editCue(p, cue, signal), onDelete: (p, cue) => deleteCue(p, cue, signal),
       onCreateCard: deck => createCard(deck, null, signal, created => revealCreatedCard(created, deck.id)),
@@ -304,12 +305,12 @@ export function activate(ctx) {
     fileInput.addEventListener('change', async () => {
       const files = [...(fileInput.files || [])]; fileInput.value = '';
       if (signal.aborted || !canConvertFiles || filePreparing || activeBatch(snapshot?.batch) || !files.length) return;
-      if (files.length !== 1) { showError('Choose one file at a time.'); return; }
-      filePreparing = true; error.textContent = ''; fileStatus.textContent = 'Converting file…'; updateGenerationButtons();
+      if (files.length !== 1) { showError(t('error.chooseOneFile')); return; }
+      filePreparing = true; error.textContent = ''; fileStatus.textContent = t('file.converting'); updateGenerationButtons();
       try {
         const converted = await ctx.documents.toMarkdown(files[0], { signal });
         if (signal.aborted) return;
-        fileStatus.textContent = 'Preparing generation…';
+        fileStatus.textContent = t('file.preparing');
         const preflight = await ctx.call('preflight-file', { name: converted.name, markdown: converted.markdown });
         if (signal.aborted) return;
         if (preflight.existingSourceId) {
@@ -333,14 +334,14 @@ export function activate(ctx) {
       if (!batch || (batch.status === 'completed' && !batch.error && !batch.chunks.some(chunk => chunk.error) && !emptyFileResult)) return;
       const bs = batchScope.signal, panel = el('section', 'fc-batch'); batchArea.append(panel);
       if (batch.kind === 'file') panel.append(el('p', 'fc-muted fc-file-name', batch.name));
-      panel.append(el('p', '', `Generation: ${batch.status} · ${batch.completed}/${batch.total} chunks · ${batch.added} cues added`));
-      if (emptyFileResult) panel.append(el('p', '', 'No flashcards were generated from this file.'));
-      for (const chunk of batch.chunks.filter(chunk => chunk.error)) panel.append(el('p', 'fc-error', `Chunk ${chunk.id}: ${chunk.error}`));
+      panel.append(el('p', '', t('generate.status', { status: batch.status, completed: batch.completed, total: batch.total, added: batch.added })));
+      if (emptyFileResult) panel.append(el('p', '', t('generate.emptyFileResult')));
+      for (const chunk of batch.chunks.filter(chunk => chunk.error)) panel.append(el('p', 'fc-error', t('generate.chunkError', { id: chunk.id, error: chunk.error })));
       if (batch.error) panel.append(el('p', 'fc-error', batch.error));
       const controls = el('div', 'fc-actions'); panel.append(controls);
-      if (activeBatch(batch)) button(controls, 'Cancel generation', guarded(() => mutate('cancel-generation', { batchId: batch.id }, signal)), bs);
-      if (!activeBatch(batch) && (batch.kind === 'file' ? batch.failedChunkIds?.length : batch.failedTargetIds?.length)) button(controls, 'Retry failed…', () => batch.kind === 'file' ? retryFileGeneration(batch.id) : confirmGeneration(batch.failedTargetIds, signal, showError), bs);
-      if (batch.error) button(controls, 'Retry saving', guarded(() => mutate('resume-results', {}, signal)), bs);
+      if (activeBatch(batch)) button(controls, t('actions.cancelGeneration'), guarded(() => mutate('cancel-generation', { batchId: batch.id }, signal)), bs);
+      if (!activeBatch(batch) && (batch.kind === 'file' ? batch.failedChunkIds?.length : batch.failedTargetIds?.length)) button(controls, t('actions.retryFailed'), () => batch.kind === 'file' ? retryFileGeneration(batch.id) : confirmGeneration(batch.failedTargetIds, signal, showError), bs);
+      if (batch.error) button(controls, t('actions.retrySaving'), guarded(() => mutate('resume-results', {}, signal)), bs);
     }
     search.addEventListener('input', () => { if (snapshot) tree.update(snapshot, search.value); }, { signal });
     observe((state, loadError) => {
@@ -369,11 +370,11 @@ export function activate(ctx) {
     const settingsRows = settings => {
       const row = (key, label, value, type, parse = value => value, extras = {}) => ({ key, label, value, type, ...extras, onChange: async value => { try { await save({ [key]: parse(value) }); } catch (cause) { showError(cause); throw cause; } } });
       return [
-        row('retention', 'Desired retention (%)', settings.retention * 100, 'number', value => Number(value) / 100, { min: 70, max: 99, step: 1 }),
-        row('learningSteps', 'Learning steps (minutes)', settings.learningSteps.map(value => `${value}m`).join(' '), 'text', parseSteps),
-        row('relearningSteps', 'Relearning steps (minutes)', settings.relearningSteps.map(value => `${value}m`).join(' '), 'text', parseSteps),
-        row('dayStart', 'Day starts at (hour)', settings.dayStart, 'number', Number, { min: 0, max: 23, step: 1 }),
-        row('chunkBudget', 'Generation chunk budget (estimated tokens)', settings.chunkBudget, 'number', Number, { min: 1, step: 1 }),
+        row('retention', t('settings.desiredRetention'), settings.retention * 100, 'number', value => Number(value) / 100, { min: 70, max: 99, step: 1 }),
+        row('learningSteps', t('settings.learningSteps'), settings.learningSteps.map(value => `${value}m`).join(' '), 'text', parseSteps),
+        row('relearningSteps', t('settings.relearningSteps'), settings.relearningSteps.map(value => `${value}m`).join(' '), 'text', parseSteps),
+        row('dayStart', t('settings.dayStart'), settings.dayStart, 'number', Number, { min: 0, max: 23, step: 1 }),
+        row('chunkBudget', t('settings.chunkBudget'), settings.chunkBudget, 'number', Number, { min: 1, step: 1 }),
       ];
     };
     const changeModels = async patch => {
@@ -382,7 +383,7 @@ export function activate(ctx) {
       try { await save(patch); if (!signal.aborted) overrideDraft = false; }
       finally { modelBusy = false; if (!signal.aborted) updateModels(snapshot.settings); }
     };
-    const followCheapRow = settings => ({ key: 'followCheapSlot', label: 'Model', description: 'Follow cheap slot', type: 'toggle', value: followingCheap(settings), disabled: modelBusy,
+    const followCheapRow = settings => ({ key: 'followCheapSlot', label: t('settings.model'), description: t('settings.followCheapSlot'), type: 'toggle', value: followingCheap(settings), disabled: modelBusy,
       onChange: async follow => {
         if (modelBusy || signal.aborted) return;
         if (follow) await changeModels({ modelOverride: null, thinkingOverride: null });
@@ -418,8 +419,8 @@ export function activate(ctx) {
     }, signal);
     return () => { scope.abort(); root.remove(); };
   }
-  registrations.push(ctx.registerView({ id: 'library', name: 'Flashcards', mount: mountLibrary }));
-  registrations.push(ctx.registerAction({ id: 'open', name: 'Flashcards', icon: flashcardsIcon, run: () => ctx.app.openView('library') }));
+  registrations.push(ctx.registerView({ id: 'library', name: t('view.name'), mount: mountLibrary }));
+  registrations.push(ctx.registerAction({ id: 'open', name: t('view.name'), icon: flashcardsIcon, run: () => ctx.app.openView('library') }));
   registrations.push(ctx.placeAction({ id: 'open-sidebar', actionId: 'open', location: 'sidebar' }));
   registrations.push(ctx.registerSettings(mountSettings));
   registrations.push(ctx.onNotification(event => { if ((!event.pluginId || event.pluginId === ctx.manifest.id) && ['changed', 'batch-changed'].includes(event.topic)) void refresh(); }));

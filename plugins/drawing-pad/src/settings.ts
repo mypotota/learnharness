@@ -1,3 +1,7 @@
+import { createTranslator, type Translator } from "./i18n.ts";
+
+const english = createTranslator("en");
+
 export const DEFAULT_DARK_INK_COLOR = "#ffffff";
 export const DEFAULT_LIGHT_INK_COLOR = "#000000";
 export const DEFAULT_IMAGE_SCALE = 50;
@@ -5,9 +9,9 @@ export interface Settings { revision: number; darkInkColor: string; lightInkColo
 export const DEFAULT_SETTINGS: Readonly<Settings> = Object.freeze({ revision: 0,
   darkInkColor: DEFAULT_DARK_INK_COLOR, lightInkColor: DEFAULT_LIGHT_INK_COLOR, imageScale: DEFAULT_IMAGE_SCALE });
 
-export function imageScaleError(value: unknown): string | undefined {
+export function imageScaleError(value: unknown, t: Translator = english): string | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 && value <= 100
-    ? undefined : "Enter a percentage greater than 0 and at most 100.";
+    ? undefined : t("settings.imageScaleError");
 }
 export function parseImageScale(value: unknown): number {
   const error = imageScaleError(value);
@@ -20,9 +24,9 @@ export function parseImageScaleChange(value: unknown): number {
   return parseImageScale((value as { imageScale: unknown }).imageScale);
 }
 
-export function colorError(value: unknown): string | undefined {
+export function colorError(value: unknown, t: Translator = english): string | undefined {
   return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
-    ? undefined : "Use a six-digit hex color, for example #facc15.";
+    ? undefined : t("settings.colorError");
 }
 export function parseColor(value: unknown): string {
   const error = colorError(value);

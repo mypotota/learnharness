@@ -6,6 +6,7 @@ import type { GraphSnapshot, PluginKnowledgePickerProps } from "@/src/core";
 import { ChainTableOverlay } from "@/components/chain-table";
 import { NodePickerControl } from "@/components/composer-actions";
 import { HostDialog } from "@/components/host-dialog";
+import { useT } from "@/components/i18n/i18n-provider";
 import { InteractionLayerOwner, useInteractionLayer, useInteractionLayers, useOptionalInteractionLayers, type InteractionLayer, type OpeningLease } from "@/components/interaction-layers";
 import { HostContentRootContext, HostRouteLifetimeContext, type HostRouteLifetime } from "./host-content-root";
 
@@ -24,6 +25,7 @@ function PanePicker({ origin, openingLease, onClose, children }: {
 	origin: PickerOrigin; openingLease: OpeningLease; onClose: () => "closed"; children: ReactNode;
 }) {
 	const controller = useInteractionLayers();
+	const t = useT();
 	const root = useRef<HTMLDivElement>(null);
 	const popup = useRef<HTMLDivElement>(null);
 	const entered = useRef(false);
@@ -51,7 +53,7 @@ function PanePicker({ origin, openingLease, onClose, children }: {
 		entered.current = true; focusInitial();
 	}, [layer.isTop, focusInitial]);
 	return createPortal(<InteractionLayerOwner.Provider value={layer.id}>
-		<div ref={root} role="region" aria-label="Pick nodes" data-plugin-knowledge-picker-pane=""
+		<div ref={root} role="region" aria-label={t("composer.pickNodes")} data-plugin-knowledge-picker-pane=""
 			className="absolute inset-0" style={{ zIndex: 100 + layer.order }}>
 			{children}
 			<div ref={popup} data-interaction-popup-host={layer.id}
@@ -66,6 +68,7 @@ export function PluginKnowledgePicker({ value, onChange, disabled, signal, onErr
 	onError: (error: unknown) => void;
 }) {
 	const controller = useOptionalInteractionLayers();
+	const t = useT();
 	const pane = useContext(HostContentRootContext);
 	const route = useContext(HostRouteLifetimeContext);
 	const origin = useRef<PickerOrigin | null>(null);
@@ -166,7 +169,7 @@ export function PluginKnowledgePicker({ value, onChange, disabled, signal, onErr
 		void (async () => {
 			try {
 				const response = await fetch("/api/graph", { signal: request.signal });
-				if (!response.ok) throw new Error("Could not read knowledge graph.");
+				if (!response.ok) throw new Error(t("plugins.graphReadFailed"));
 				const graph = await response.json() as GraphSnapshot;
 				if (!alive.current || signal.aborted || request.signal.aborted || pending.current !== request || latest.current.disabled || !owner.owns()) return;
 				graphCache.current = graph; setSnapshot(graph); promote();
@@ -190,7 +193,7 @@ export function PluginKnowledgePicker({ value, onChange, disabled, signal, onErr
 		<NodePickerControl count={new Set(value).size} onOpen={show} onClear={() => change([])} disabled={disabled} triggerRef={trigger} />
 		{visible && source && (source.modal
 			? <HostDialog open layerId={PICKER_LAYER} ownerId={source.owner?.id ?? null} openingLease={lease.current!}
-				onClose={close} aria-label="Pick nodes" frame={<div className="absolute inset-0" />}>{table}</HostDialog>
+				onClose={close} aria-label={t("composer.pickNodes")} frame={<div className="absolute inset-0" />}>{table}</HostDialog>
 			: <PanePicker origin={source} openingLease={lease.current!} onClose={close}>{table}</PanePicker>)}
 	</>;
 }

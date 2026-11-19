@@ -9,7 +9,7 @@ const tick = async () => { for (let i = 0; i < 15; i++) await Promise.resolve();
 const info = (id: string): PluginInfo => ({ id, origin: "community", enabled: true, status: "active", revision: "1", manifest: { apiVersion: 1, id, name: id, version: "1.0.0", minAppVersion: "0.3.7", main: "index.js" } });
 function fixture() {
 	const contexts = new Map<string, PluginFrontendContext>();
-	const manager = new PluginFrontendManager({ fetch: async () => Response.json({}), pathname: () => "/", navigate() {}, importModule: async () => ({ activate(context) { contexts.set(context.manifest.id, context); } }) });
+	const manager = new PluginFrontendManager({ fetch: async () => Response.json({}), pathname: () => "/", navigate() {}, locale: () => "en", importModule: async () => ({ activate(context) { contexts.set(context.manifest.id, context); } }) });
 	manager.reconcile([info("zulu"), info("alpha")]);
 	return { manager, contexts };
 }

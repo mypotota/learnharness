@@ -16,7 +16,7 @@ function deferred<T>() {
 async function fixture(fetch: PluginHost["fetch"]) {
 	const contexts: PluginFrontendContext[] = [];
 	const manager = new PluginFrontendManager({ fetch,
-		importModule: async () => ({ activate(ctx) { contexts.push(ctx); } }), pathname: () => "/", navigate() {},
+		importModule: async () => ({ activate(ctx) { contexts.push(ctx); } }), pathname: () => "/", navigate() {}, locale: () => "en",
 	});
 	manager.reconcile([info]); await tick();
 	assert.equal(contexts.length, 1);

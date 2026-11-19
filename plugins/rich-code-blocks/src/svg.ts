@@ -1,5 +1,8 @@
 import { SVG_LIMIT, checkSvgSize, type Language } from "./contract.ts";
+import { createTranslator, type Translator } from "./i18n.ts";
 import { prepareInk } from "./appearance.ts";
+
+const english = createTranslator("en");
 
 const NS = "http://www.w3.org/2000/svg";
 const ELEMENTS = new Set(["svg", "g", "defs", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "title", "desc", "clipPath", "mask", "linearGradient", "radialGradient", "stop", "marker", "pattern", "use"]);
@@ -34,12 +37,12 @@ function viewBox(value: string): string | undefined {
  * No HTML, CSS rules, event handlers, animations, external references or arbitrary
  * attribute names survive. This is deliberately stricter than a generic SVG sanitizer.
  */
-export function sanitizeSvg(source: string, label: string, language?: Language): SVGSVGElement {
-  checkSvgSize(source);
-  if (/<!DOCTYPE|<!ENTITY/i.test(source)) throw new Error("SVG document declarations are not supported.");
+export function sanitizeSvg(source: string, label: string, language?: Language, t: Translator = english): SVGSVGElement {
+  checkSvgSize(source, t);
+  if (/<!DOCTYPE|<!ENTITY/i.test(source)) throw new Error(t("errors.svgDocumentDeclarations"));
   const parsed = new DOMParser().parseFromString(source, "image/svg+xml");
   if (parsed.querySelector("parsererror") || parsed.documentElement.localName !== "svg" || parsed.documentElement.namespaceURI !== NS) {
-    throw new Error("The renderer did not produce a valid SVG.");
+    throw new Error(t("errors.invalidSvg"));
   }
   const prefix = `rich-code-blocks-${++serial}-`;
   const ids = new Map<string, string>();
@@ -128,7 +131,7 @@ export function sanitizeSvg(source: string, label: string, language?: Language):
   if (!svg.getAttribute("viewBox")) {
     const width = parseFloat(svg.getAttribute("width") ?? "");
     const height = parseFloat(svg.getAttribute("height") ?? "");
-    if (!(Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0)) throw new Error("SVG dimensions are missing or invalid.");
+    if (!(Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0)) throw new Error(t("errors.svgDimensions"));
     svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   }
   // Keep only a natural width; CSS derives height from viewBox when fitting.
@@ -149,7 +152,7 @@ export function sanitizeSvg(source: string, label: string, language?: Language):
   // Only plugin-owned appearance declarations are added, after rebuilding the
   // untrusted tree and before the final use-expanded resource admission check.
   if (language) prepareInk(svg, language);
-  checkReferenceBudget(svg);
+  checkReferenceBudget(svg, t);
   return svg;
 }
 
@@ -157,7 +160,7 @@ export function sanitizeSvg(source: string, label: string, language?: Language):
  * it. Memoization plus a visiting set rejects cycles and acyclic reference bombs
  * in linear graph work; saturating arithmetic stops at the existing output cap.
  */
-function checkReferenceBudget(svg: SVGSVGElement): void {
+function checkReferenceBudget(svg: SVGSVGElement, t: Translator): void {
   const targets = new Map<string, Element>();
   if (svg.id) targets.set(svg.id, svg);
   for (const element of svg.querySelectorAll("[id]")) if (!targets.has(element.id)) targets.set(element.id, element);
@@ -167,12 +170,12 @@ function checkReferenceBudget(svg: SVGSVGElement): void {
   function size(node: Node): number {
     const cached = memo.get(node);
     if (cached !== undefined) return cached;
-    if (visiting.has(node)) throw new Error("Cyclic SVG references are not supported.");
+    if (visiting.has(node)) throw new Error(t("errors.cyclicSvgReferences"));
     visiting.add(node);
     let cost = node.nodeType === Node.TEXT_NODE ? encoder.encode(node.textContent ?? "").byteLength : 0;
     const add = (amount: number) => {
       cost = Math.min(SVG_LIMIT + 1, cost + amount);
-      if (cost > SVG_LIMIT) throw new Error("SVG references exceed the 2 MiB expanded output limit.");
+      if (cost > SVG_LIMIT) throw new Error(t("errors.svgReferenceBudget"));
     };
     if (node.nodeType === Node.ELEMENT_NODE) {
       const element = node as Element;

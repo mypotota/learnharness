@@ -9,12 +9,12 @@ import { crc32 } from "node:zlib";
 export const AUTHORING_DOCS = [
 	"plugin-authoring.md", "plugin-architecture.md", "plugin-question-contract.md",
 	"plugin-problem-contract.md", "plugin-session-extension-contract.md", "plugin-tree-contract.md",
-	"plugin-view-context.md", "dialog-overlay-contract.md", "plugin-examples.md",
+	"plugin-view-context.md", "dialog-overlay-contract.md", "plugin-examples.md", "plugin-i18n.md",
 ];
 export const AUTHORING_EXAMPLES = ["hello-plugin", "managed-agent", "teaching-extension"];
 export const AUTHORING_PROJECTS = ["flashcards", "coding-questions", "drawing-pad", "rich-code-blocks", "ui-showcase"];
 const PROJECT_FILES = [".gitignore", "README.md", "LICENSE", "THIRD-PARTY.md", "FSRS-LICENSE.txt", "manifest.json", "package.json", "package-lock.json", "tsconfig.json"];
-const PROJECT_DIRECTORIES = ["src", "scripts", "tests", "licenses"];
+const PROJECT_DIRECTORIES = ["src", "scripts", "tests", "licenses", "messages"];
 export const AUTHORING_ZIP = "learnharness-plugins.zip";
 
 /** Admit every component below the intended source root before dereferencing it.

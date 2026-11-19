@@ -42,7 +42,7 @@ async function harness(frontend: PluginFrontendModule, { reserved = true } = {})
 	window.__lhPluginWindow = createPluginWindowOwner({
 		reservedCodeBlockLanguages: reserved ? ["mermaid"] : [], reservedToolNames: reserved ? reservedToolRendererNames() : [],
 		fetch: async () => Response.json({ plugins: [packageInfo], directory: "/fixture/plugins" }),
-		importModule: async () => frontend, pathname: () => "/", navigate() {},
+		importModule: async () => frontend, pathname: () => "/", navigate() {}, locale: () => "en",
 	});
 	const owner = window.__lhPluginWindow;
 	const root = createRoot(document.querySelector("#test-root")!);

@@ -36,6 +36,7 @@ import type { ModelRole } from "../../config.ts";
 import type { ChatSettings } from "./contracts/chat.ts";
 import { isSearchEngineId, type SearchEngineId } from "./search.ts";
 import { isDictationLanguage, type DictationLanguage } from "./dictation.ts";
+import { isAppLocale, type AppLocale } from "./i18n/locales.ts";
 import { parseFileAccessSettings, type FileAccessSettings } from "./file-access.ts";
 import { COLOR_OVERRIDE_KEYS, isThemeId, type AppearanceColorOverrides } from "./themes.ts";
 
@@ -340,6 +341,10 @@ export const ROLE_SLOT: Readonly<Record<ModelRole, ModelSlotName>> = {
 export interface GeneralSettings {
 	/** Automatic startup/24h update checks (default ON). Manual checks bypass this. */
 	autoUpdate?: boolean;
+	/** The interface language the user PICKED (i18n wave, 2026-11-19).
+	 *  ABSENT = "follow the system" — there is no factory locale, because
+	 *  the default depends on the operating system, not on the app. */
+	locale?: AppLocale;
 }
 
 /** One app-wide dictation preference, shared by every composer. */
@@ -515,7 +520,9 @@ export interface UserSettings {
 export interface FactorySettings {
 	version: number;
 	agent: Required<Pick<AgentSettings, "workerRequestConcurrency">>;
-	general: Required<GeneralSettings>;
+	/** The general section's factory defaults. NO locale here on purpose:
+	 *  "follow the system" is the default, and the system is not a factory. */
+	general: { autoUpdate: boolean };
 	dictation: Required<DictationSettings>;
 	appearance: {
 		theme: string;
@@ -586,6 +593,9 @@ function sanitizeGeneral(raw: Record<string, unknown>): GeneralSettings {
 	const out: GeneralSettings = {};
 	const autoUpdate = boolOrDrop(raw.autoUpdate);
 	if (autoUpdate !== undefined) out.autoUpdate = autoUpdate;
+	// An unknown locale is DROPPED, not clamped: the disk path stays lenient
+	// and an unreadable choice falls back to "follow the system".
+	if (isAppLocale(raw.locale)) out.locale = raw.locale;
 	return out;
 }
 

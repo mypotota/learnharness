@@ -7,6 +7,7 @@ import { useNotifyHub } from "@/components/server-events";
 import { PluginFrontendManager, type PluginHost, type PluginMount, type PluginSnapshot } from "@/components/plugin-manager";
 import { createPluginUiStore, PluginUiHost } from "@/components/plugin-ui-host";
 import { BUILTIN_MERMAID_LANGUAGE, reservedToolRendererNames } from "@/components/plugin-renderers";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 const EMPTY: PluginSnapshot = { plugins: [], codeBlocks: [], toolRenderers: [], directory: "", conflicts: [], loading: true, refreshing: false };
 const emptySubscribe = () => () => {};
@@ -74,6 +75,9 @@ export function PluginsProvider({ children }: { children: ReactNode }) {
 	const router = useRouter();
 	const routerRef = useRef(router);
 	routerRef.current = router;
+	const { locale } = useI18n();
+	const localeRef = useRef(locale);
+	localeRef.current = locale;
 	const [manager, setManager] = useState<PluginFrontendManager | null>(null);
 	const [uiStore, setUiStore] = useState<ReturnType<typeof createPluginUiStore> | null>(null);
 	useEffect(() => {
@@ -82,6 +86,7 @@ export function PluginsProvider({ children }: { children: ReactNode }) {
 				reservedCodeBlockLanguages: [BUILTIN_MERMAID_LANGUAGE], reservedToolNames: reservedToolRendererNames(),
 				fetch: (...args) => fetch(...args), importModule: importPluginModule,
 				pathname: () => window.location.pathname, navigate: path => routerRef.current.push(path),
+				locale: () => localeRef.current,
 				openSettings: pluginId => window.dispatchEvent(new CustomEvent("lh:open-plugin-settings", { detail: pluginId })),
 				style: (url, onError) => {
 					const link = document.createElement("link");

@@ -1,0 +1,77 @@
+/**
+ * THE GRAPH AREA (i18n wave, 2026-11-19): the knowledge graph surface's
+ * own copy — the cost pill and panel, the display-settings panel's
+ * sliders, the search box, the empty state and the sessions list.
+ *
+ * The English text IS today's wording, exactly.
+ */
+
+export const graph = {
+	costs: "Graph costs — click for details",
+	pipelineCosts: "Graph pipeline costs",
+	stageExtraction: "Extraction",
+	stageAudit: "Audit",
+	unpriced: "unpriced",
+	tokensIn: "in",
+	tokensOut: "out",
+	displaySettings: "Graph display settings",
+	nodeSize: "Node size",
+	edgeWidth: "Edge width",
+	arrowheadSize: "Arrowhead size",
+	labelSize: "Label size",
+	labelsUntilZoom: "Labels until zoom",
+	regions: "Regions",
+	backgroundColors: "Background colors",
+	dilation: "Dilation",
+	blur: "Blur",
+	edgeAlpha: "Edge alpha",
+	bitmapResolution: "Bitmap resolution",
+	clusterLabels: "Cluster labels",
+	clusterLabelSize: "Cluster label size",
+	physics: "Physics",
+	nodeRepulsion: "Node repulsion",
+	edgeAttraction: "Edge attraction",
+	edgeLength: "Edge length",
+	centralPull: "Central pull",
+	clusterPull: "Cluster pull",
+	friction: "Friction",
+	depthAnchor: "Depth anchor",
+	depthOff: "Off",
+	depthVertical: "Vertical (up)",
+	depthRadial: "Radial (outward)",
+	depthStrength: "Depth strength",
+	depthSpacing: "Depth spacing",
+	baseRingRadius: "Base ring radius",
+	searchNodes: "Search nodes",
+	searchNodesPlaceholder: "Search nodes…",
+	noMatchingNodes: "No matching nodes.",
+	everyReasoningChain: "Every reasoning chain",
+	chains: "Chains",
+	knowledgeGraph: "Knowledge graph",
+	startSession: "Start a session to begin learning.",
+	attachMaterial: "Attach your material with the paperclip or drag and drop.",
+	delete: "Delete",
+	sessions: "Sessions",
+	noSessionsRecorded: "No sessions recorded.",
+
+/* The notes-import control (components/notes-import.tsx). */
+	extractTitle: "Extract files into the graph",
+	extractAction: "Extract files…",
+	extracting: "Extracting…",
+	filesChoice: "Files",
+	folderChoice: "Folder",
+	attachMaterialHint: "For lessons, attach material to a session instead.",
+/* The source tree + context card (source-folder-tree, graph-context-card). */
+	folderNamePlaceholder: "Folder name",
+	sourceOrFolderNameAria: "Source or folder name",
+	moveOutsideFolders: "Move outside folders",
+	contextCard: "Graph context",
+	propositionsCount: "{count, plural, one {# proposition} other {# propositions}}",
+	chainsCount: "{count, plural, one {# chain} other {# chains}}",
+	/* The home composer's mode switch + the minimal home's summary counts. */
+	modeTeach: "Teach",
+	modePractice: "Practice",
+	teachSessionsCount: "{count, plural, one {# teaching session} other {# teaching sessions}}",
+	practiceSessionsCount: "{count, plural, one {# practice session} other {# practice sessions}}",
+	notesCount: "{count, plural, one {# imported note} other {# imported notes}}",
+} as const;

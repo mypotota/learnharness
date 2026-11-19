@@ -19,6 +19,7 @@ import { createMathPlugin } from "@streamdown/math";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import type { LhViewMessage } from "@/src/core";
+import { useT } from "@/components/i18n/i18n-provider";
 import {
   createContext,
   memo,
@@ -267,10 +268,11 @@ export const MessageBranchPrevious = ({
   ...props
 }: MessageBranchPreviousProps) => {
   const { goToPrevious, totalBranches } = useMessageBranch();
+  const t = useT();
 
   return (
     <Button
-      aria-label="Previous branch"
+      aria-label={t("chat.previousBranch")}
       disabled={totalBranches <= 1}
       onClick={goToPrevious}
       size="icon-sm"
@@ -290,10 +292,11 @@ export const MessageBranchNext = ({
   ...props
 }: MessageBranchNextProps) => {
   const { goToNext, totalBranches } = useMessageBranch();
+  const t = useT();
 
   return (
     <Button
-      aria-label="Next branch"
+      aria-label={t("chat.nextBranch")}
       disabled={totalBranches <= 1}
       onClick={goToNext}
       size="icon-sm"

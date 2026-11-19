@@ -26,6 +26,7 @@ import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
 import type { ModelRole } from "../../config.ts";
 import type { ChatSettings } from "./contracts/chat.ts";
 import type { SearchEngineId } from "./search.ts";
+import type { AppLocale } from "./i18n/locales.ts";
 import {
 	BACKGROUND_MODEL_ROLES,
 	FACTORY_SETTINGS,
@@ -72,7 +73,13 @@ export type EffectiveAppearance = FactorySettings["appearance"];
 
 /** The concrete view: every knob resolved, no absent fields. */
 export interface EffectiveSettings {
-	general: Required<GeneralSettings>;
+	general: {
+		autoUpdate: boolean;
+		/** The user's explicit language choice — undefined means "follow the
+		 *  system". Deliberately UNRESOLVED: this module is pure and cannot
+		 *  know the operating system's language. */
+		locale: AppLocale | undefined;
+	};
 	dictation: Required<DictationSettings>;
 	agent: {
 		workerRequestConcurrency: number;
@@ -197,6 +204,7 @@ export function resolveSettings(record: UserSettings | null): EffectiveSettings 
 	return {
 		general: {
 			autoUpdate: record?.general?.autoUpdate ?? FACTORY_SETTINGS.general.autoUpdate,
+			locale: record?.general?.locale,
 		},
 		dictation: {
 			language: record?.dictation?.language ?? FACTORY_SETTINGS.dictation.language,

@@ -19,6 +19,8 @@
  * Order is fixed: mod, alt, shift, then the key.
  */
 
+import { EN_MESSAGES, type TranslateFn } from "./i18n/messages/index.ts";
+
 export type KeyAction =
 	| "toggle-dictation"
 	| "open-model-picker"
@@ -56,38 +58,82 @@ export interface KeyActionDef {
 }
 
 export const KEYBOARD_ACTIONS: readonly KeyActionDef[] = [
-	{ id: "toggle-dictation", label: "Toggle dictation", scope: "global", binding: "mod+d" },
-	{ id: "open-settings", label: "Open settings", scope: "global", binding: "mod+," },
-	{ id: "open-model-picker", label: "Model selector", scope: "global", binding: "mod+k" },
-	{ id: "cycle-thinking", label: "Cycle thinking level", scope: "global", binding: "shift+tab" },
-	{ id: "toggle-sidebar", label: "Toggle sessions sidebar", scope: "global", binding: "mod+b" },
-	{ id: "sessions-search", label: "Search sessions", scope: "global", binding: "mod+shift+f" },
+	{ id: "toggle-dictation", label: EN_MESSAGES.keyboard.toggleDictation, scope: "global", binding: "mod+d" },
+	{ id: "open-settings", label: EN_MESSAGES.keyboard.openSettings, scope: "global", binding: "mod+," },
+	{ id: "open-model-picker", label: EN_MESSAGES.keyboard.modelSelector, scope: "global", binding: "mod+k" },
+	{ id: "cycle-thinking", label: EN_MESSAGES.keyboard.cycleThinkingLevel, scope: "global", binding: "shift+tab" },
+	{ id: "toggle-sidebar", label: EN_MESSAGES.keyboard.toggleSessionsSidebar, scope: "global", binding: "mod+b" },
+	{ id: "sessions-search", label: EN_MESSAGES.keyboard.searchSessions, scope: "global", binding: "mod+shift+f" },
 	// (The Alt+↑/↓/↵ session cycle was RETIRED, owner 2026-10-10: barely
 	// used, felt laggy. Session navigation lives IN the search now — ↑/↓
 	// walk the filtered list, Enter opens (first match when nothing
 	// walked) — see sidebar.tsx's search input.)
-	{ id: "jump-graph", label: "Graph view", scope: "global", binding: "mod+g" },
-	{ id: "new-session", label: "New session", scope: "global", binding: "mod+n" },
-	{ id: "rename-session", label: "Rename session", scope: "chat", binding: "f2" },
-	{ id: "toggle-user-thinking", label: "Toggle all your thinking", scope: "chat", binding: "mod+t" },
-	{ id: "toggle-question-thread", label: "Question · ask for a nudge (side thread)", scope: "chat", binding: "mod+j" },
+	{ id: "jump-graph", label: EN_MESSAGES.keyboard.graphView, scope: "global", binding: "mod+g" },
+	{ id: "new-session", label: EN_MESSAGES.keyboard.newSession, scope: "global", binding: "mod+n" },
+	{ id: "rename-session", label: EN_MESSAGES.keyboard.renameSession, scope: "chat", binding: "f2" },
+	{ id: "toggle-user-thinking", label: EN_MESSAGES.keyboard.toggleAllYourThinking, scope: "chat", binding: "mod+t" },
+	{ id: "toggle-question-thread", label: EN_MESSAGES.keyboard.askForNudge, scope: "chat", binding: "mod+j" },
 	// Mod+F is surface-scoped: graph node search and session text Find share
 	// one action/binding. Only the currently mounted surface listens.
-	{ id: "find", label: "Find", scope: "global", binding: "mod+f" },
-	{ id: "cheat-sheet", label: "Shortcut cheat sheet", scope: "global", binding: "?" },
+	{ id: "find", label: EN_MESSAGES.keyboard.find, scope: "global", binding: "mod+f" },
+	{ id: "cheat-sheet", label: EN_MESSAGES.keyboard.cheatSheet, scope: "global", binding: "?" },
 	// The question dock's row machine (wave B) — displayOnly: the dock owns
 	// the keys while a question is expanded; the registry never dispatches
 	// them, so bare arrows stay free everywhere else.
-	{ id: "question-focus", label: "Question · focus thinking ↔ rows", scope: "chat", binding: "tab", displayOnly: true },
+	{ id: "question-focus", label: EN_MESSAGES.keyboard.focusThinkingRows, scope: "chat", binding: "tab", displayOnly: true },
 	// (The model-menu entries — "walk results" ↑/↓, "pick result" ↵ — were
 	// REMOVED, owner 2026-10-10: obvious in-field menu navigation, never
 	// dispatched, never rebindable — not settings material. The menu's own
 	// arrow machine (menu-shell.tsx) is unchanged.)
-	{ id: "question-next-row", label: "Question · next row", scope: "chat", binding: "arrowdown", displayOnly: true },
-	{ id: "question-prev-row", label: "Question · previous row", scope: "chat", binding: "arrowup", displayOnly: true },
-	{ id: "question-pick-row", label: "Question · pick row", scope: "chat", binding: "space", displayOnly: true },
-	{ id: "question-submit", label: "Question · submit", scope: "chat", binding: "enter", displayOnly: true },
+	{ id: "question-next-row", label: EN_MESSAGES.keyboard.nextRow, scope: "chat", binding: "arrowdown", displayOnly: true },
+	{ id: "question-prev-row", label: EN_MESSAGES.keyboard.prevRow, scope: "chat", binding: "arrowup", displayOnly: true },
+	{ id: "question-pick-row", label: EN_MESSAGES.keyboard.pickRow, scope: "chat", binding: "space", displayOnly: true },
+	{ id: "question-submit", label: EN_MESSAGES.keyboard.submit, scope: "chat", binding: "enter", displayOnly: true },
 ];
+
+/** The registry label in the ACTIVE language (i18n wave): the registry
+ *  itself stores the English catalog copy (the no-provider fallback);
+ *  every rendered surface resolves through this. */
+export function keyActionLabel(id: KeyAction, t: TranslateFn): string {
+	switch (id) {
+		case "toggle-dictation":
+			return t("keyboard.toggleDictation");
+		case "open-settings":
+			return t("keyboard.openSettings");
+		case "open-model-picker":
+			return t("keyboard.modelSelector");
+		case "cycle-thinking":
+			return t("keyboard.cycleThinkingLevel");
+		case "toggle-sidebar":
+			return t("keyboard.toggleSessionsSidebar");
+		case "sessions-search":
+			return t("keyboard.searchSessions");
+		case "jump-graph":
+			return t("keyboard.graphView");
+		case "new-session":
+			return t("keyboard.newSession");
+		case "rename-session":
+			return t("keyboard.renameSession");
+		case "toggle-user-thinking":
+			return t("keyboard.toggleAllYourThinking");
+		case "toggle-question-thread":
+			return t("keyboard.askForNudge");
+		case "find":
+			return t("keyboard.find");
+		case "cheat-sheet":
+			return t("keyboard.cheatSheet");
+		case "question-focus":
+			return t("keyboard.focusThinkingRows");
+		case "question-next-row":
+			return t("keyboard.nextRow");
+		case "question-prev-row":
+			return t("keyboard.prevRow");
+		case "question-pick-row":
+			return t("keyboard.pickRow");
+		case "question-submit":
+			return t("keyboard.submit");
+	}
+}
 
 export type KeymapAction = KeyAction | `plugin:${string}:${string}`;
 export type KeymapOverrides = Partial<Record<KeymapAction, string>>;

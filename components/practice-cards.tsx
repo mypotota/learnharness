@@ -27,6 +27,7 @@ import { ThinkingBlock } from "@/components/thinking-block";
 import { usePopoverDismiss } from "@/components/popover-dismiss";
 import { INTERACTION_LAYER_Z_BASE } from "@/components/host-dialog";
 import { useInteractionLayers } from "@/components/interaction-layers";
+import { englishT, useT } from "@/components/i18n/i18n-provider";
 
 /* TARGET NAMES (owner round 17, 2026-10-06): targets are normalized to
  * opaque node ids at the record seam (owner round 9 — the mastery trace
@@ -59,6 +60,7 @@ export interface PracticeThinkingData {
 }
 
 export function ProblemCard({ part }: ArtifactPartProps) {
+	const t = useT();
 	// Always open, no chevron (owner round, 2026-10-05): the record IS the
 	// statement — same container + eyebrow discipline as the answered card
 	// and the dock (which mirrors this in Slice D). The commitment never
@@ -67,7 +69,7 @@ export function ProblemCard({ part }: ArtifactPartProps) {
 	const statement = typeof input.statement === "string" ? input.statement : "";
 	return (
 		<div data-testid="problem-card" className="lh-card-enter my-1 rounded-xl border bg-card p-4">
-			<div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">Problem</div>
+			<div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("practice.problem")}</div>
 			<div className="lh-prose text-[15px]">
 				<ToolContentResponse>{statement}</ToolContentResponse>
 			</div>
@@ -75,13 +77,25 @@ export function ProblemCard({ part }: ArtifactPartProps) {
 	);
 }
 
-const OUTCOME_LABEL: Record<string, string> = {
-	solved: "Solved",
-	solvedWithHints: "Solved with hints",
-	movedOn: "Moved on",
-	surrendered: "Surrendered",
-	dismissed: "Dismissed",
-};
+/** i18n wave: the outcome chips' text, translated (defaults to English for
+ * un-provider'd renders). Unknown outcomes read as empty — same semantics
+ * as the old `OUTCOME_LABEL[outcome] ?? ""` lookup. */
+function outcomeLabel(outcome: string, t: typeof englishT = englishT): string {
+	switch (outcome) {
+		case "solved":
+			return t("practice.outcomeSolved");
+		case "solvedWithHints":
+			return t("practice.outcomeSolvedWithHints");
+		case "movedOn":
+			return t("practice.outcomeMovedOn");
+		case "surrendered":
+			return t("practice.outcomeSurrendered");
+		case "dismissed":
+			return t("practice.outcomeDismissed");
+		default:
+			return "";
+	}
+}
 
 /* The outcome chips (owner round 3, 2026-10-05): the EXACT register of the
  * quiz cards' correct/incorrect bubbles. Colors per outcome — solved reads
@@ -95,6 +109,7 @@ const OUTCOME_COLOR: Record<string, string | undefined> = {
 };
 
 export function ConcludeCard({ part }: ArtifactPartProps) {
+	const t = useT();
 	// The conclusion redesigned (owner round, 2026-10-05): the SOLUTION is
 	// the hero — the modelSolution committed at pose time (part.reveal, the
 	// view-seam join), shown verbatim, never re-authored. The verdict sits
@@ -112,7 +127,7 @@ export function ConcludeCard({ part }: ArtifactPartProps) {
 	if (outcome === "dismissed") {
 		return (
 			<div data-testid="conclude-card" className="my-1 px-1 text-sm text-muted-foreground/70">
-				Problem dismissed.
+				{t("practice.problemDismissed")}
 			</div>
 		);
 	}
@@ -123,9 +138,9 @@ export function ConcludeCard({ part }: ArtifactPartProps) {
 			    eyebrow + the outcome in the quiz cards' EXACT chip register —
 			    no more two same-weight headings stacked. */}
 			<div className="mb-1 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-				Concluded
-				{(OUTCOME_LABEL[outcome] ?? "") !== "" && outcome !== "dismissed" && (
-					<StatusBadge text={OUTCOME_LABEL[outcome] ?? ""} color={OUTCOME_COLOR[outcome]} />
+				{t("practice.concluded")}
+				{outcomeLabel(outcome, t) !== "" && outcome !== "dismissed" && (
+					<StatusBadge text={outcomeLabel(outcome, t)} color={OUTCOME_COLOR[outcome]} />
 				)}
 			</div>
 			{/* The verdict — plain prose under the heading, no 'Verdict:' label
@@ -141,7 +156,7 @@ export function ConcludeCard({ part }: ArtifactPartProps) {
 				<>
 					<div className="my-3 border-t" />
 					<div>
-						<div className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Model solution</div>
+						<div className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{t("practice.modelSolution")}</div>
 						<div className="lh-prose text-[15px]">
 							<ToolContentResponse>{reveal}</ToolContentResponse>
 						</div>
@@ -176,6 +191,7 @@ function MetadataPopover({
 	concludeInput: { outcome?: string; rung?: unknown; missClass?: unknown; retest?: unknown };
 	problemInput: { mode?: unknown; target?: unknown };
 }) {
+	const t = useT();
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement | null>(null);
 	const rootRef = useRef<HTMLDivElement | null>(null);
@@ -240,7 +256,7 @@ function MetadataPopover({
 				aria-expanded={open}
 				className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
 			>
-				Metadata
+				{t("practice.metadata")}
 			</button>
 			{open &&
 				anchor &&
@@ -258,31 +274,31 @@ function MetadataPopover({
 						className="w-80 max-w-[calc(100vw-1rem)] rounded-xl border bg-card p-4 text-left shadow-lg"
 					>
 				<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-						<dt className="text-muted-foreground">Mode</dt>
+						<dt className="text-muted-foreground">{t("practice.mode")}</dt>
 						<dd className="font-mono">{mode || "—"}</dd>
-						<dt className="text-muted-foreground">Targets</dt>
+						<dt className="text-muted-foreground">{t("practice.targets")}</dt>
 						<dd className="font-mono">
 							{targets.length === 0 ? (
-								"untagged"
+								t("practice.valueUntagged")
 							) : (
 								<span>
-									{targets.map((t, i) => (
-										<span key={t}>
+									{targets.map((target, i) => (
+										<span key={target}>
 											{i > 0 && ", "}
-											{names?.[t] ?? t}
+											{names?.[target] ?? target}
 										</span>
 									))}
 								</span>
 							)}
 						</dd>
-						<dt className="text-muted-foreground">Outcome</dt>
+						<dt className="text-muted-foreground">{t("practice.outcome")}</dt>
 						<dd className="font-mono">{outcome || "—"}</dd>
-						<dt className="text-muted-foreground">Hint rung</dt>
-						<dd className="font-mono">{rung || "none"}</dd>
-						<dt className="text-muted-foreground">Miss class</dt>
-						<dd className="font-mono">{miss || "none"}</dd>
-						<dt className="text-muted-foreground">Retest</dt>
-						<dd className="font-mono">{retest === undefined ? "—" : retest ? "yes" : "no"}</dd>
+						<dt className="text-muted-foreground">{t("practice.hintRung")}</dt>
+						<dd className="font-mono">{rung || t("practice.valueNone")}</dd>
+						<dt className="text-muted-foreground">{t("practice.missClass")}</dt>
+						<dd className="font-mono">{miss || t("practice.valueNone")}</dd>
+						<dt className="text-muted-foreground">{t("practice.retest")}</dt>
+						<dd className="font-mono">{retest === undefined ? "—" : retest ? t("practice.valueYes") : t("practice.valueNo")}</dd>
 					</dl>
 					</div>,
 					interactions.getPortalContainer(triggerRef.current)!,
@@ -292,9 +308,10 @@ function MetadataPopover({
 }
 
 export function ThinkingCard({ data }: { data: PracticeThinkingData }) {
+	const t = useT();
 	// The unified row (owner rounds, 2026-10-05): one style, one label —
 	// 50%-italic quote block on expand. Legacy records' commit flag is
 	// deliberately unread (one lane now). A TRANSCRIPT row (owner round,
 	// 2026-10-07): full-width band + rail, arriving expanded.
-	return <ThinkingBlock testId="thinking-card" label="YOUR THINKING" text={data.text} images={data.images} defaultOpen />;
+	return <ThinkingBlock testId="thinking-card" label={t("practice.yourThinking")} text={data.text} images={data.images} defaultOpen />;
 }

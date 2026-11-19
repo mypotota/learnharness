@@ -82,6 +82,12 @@ contextBridge.exposeInMainWorld("lh", {
 		},
 	},
 	expandWindow: () => ipcRenderer.send("lh:expand-window"),
+	// The desktop's language (i18n wave, 2026-11-19) — the renderer asks
+	// the OS what it speaks, so "follow the system" means the SYSTEM's
+	// language and not the browser's guess.
+	locale: () => ipcRenderer.invoke("lh:locale"),
+	// The application menu follows the app's UI language (i18n wave).
+	menuLocale: (locale) => ipcRenderer.send("lh:menu-locale", locale),
 	setAppearance: (a) => ipcRenderer.send("lh:appearance", a),
 	onZoom: (cb) => {
 		const listener = (_event, factor) => cb(factor);

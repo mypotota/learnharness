@@ -23,6 +23,7 @@
 - [PluginInstructions](#plugininstructions)
 - [PluginLearningData](#pluginlearningdata)
 - [PluginManifest](#pluginmanifest)
+- [PluginManifestTranslations](#pluginmanifesttranslations)
 - [PluginNotification](#pluginnotification)
 - [PluginPageActionContext](#pluginpageactioncontext)
 - [PluginSettingsRegistration](#pluginsettingsregistration)
@@ -662,6 +663,7 @@ subscriptions and UI expire with this activation; backend work is server-owned.
 ```ts
 export interface PluginFrontendContext {
     readonly manifest: PluginManifest;
+    readonly locale: import("./i18n/locales.ts").AppLocale;
     readonly signal: AbortSignal;
     cleanup(dispose: PluginCleanup): void;
     registerView(view: PluginView): () => void;
@@ -701,11 +703,12 @@ export interface PluginFrontendContext {
 }
 ```
 
-**Related types:** [PluginAction](plugins.md#pluginaction), [PluginActionPlacement](plugins.md#pluginactionplacement), [PluginCleanup](plugins.md#plugincleanup), [PluginCodeBlockRenderer](plugins.md#plugincodeblockrenderer), [PluginManifest](plugins.md#pluginmanifest), [PluginNotification](plugins.md#pluginnotification), [PluginProblemRenderer](plugin-problems.md#pluginproblemrenderer), [PluginQuestionRenderer](plugin-questions.md#pluginquestionrenderer), [PluginSettingsRegistration](plugins.md#pluginsettingsregistration), [PluginSettingsSchema](plugin-ui.md#pluginsettingsschema), [PluginSubmissionInterceptor](plugin-submissions.md#pluginsubmissioninterceptor), [PluginToolRenderer](plugins.md#plugintoolrenderer), [PluginUi](plugin-ui.md#pluginui), [PluginView](plugins.md#pluginview), [PluginWidgetHandle](plugin-ui.md#pluginwidgethandle), [ServerEvent](events.md#serverevent).
+**Related types:** [AppLocale](i18n-locales.md#applocale), [PluginAction](plugins.md#pluginaction), [PluginActionPlacement](plugins.md#pluginactionplacement), [PluginCleanup](plugins.md#plugincleanup), [PluginCodeBlockRenderer](plugins.md#plugincodeblockrenderer), [PluginManifest](plugins.md#pluginmanifest), [PluginNotification](plugins.md#pluginnotification), [PluginProblemRenderer](plugin-problems.md#pluginproblemrenderer), [PluginQuestionRenderer](plugin-questions.md#pluginquestionrenderer), [PluginSettingsRegistration](plugins.md#pluginsettingsregistration), [PluginSettingsSchema](plugin-ui.md#pluginsettingsschema), [PluginSubmissionInterceptor](plugin-submissions.md#pluginsubmissioninterceptor), [PluginToolRenderer](plugins.md#plugintoolrenderer), [PluginUi](plugin-ui.md#pluginui), [PluginView](plugins.md#pluginview), [PluginWidgetHandle](plugin-ui.md#pluginwidgethandle), [ServerEvent](events.md#serverevent).
 
 **Member index** (including nested object members; inherited members are defined in the linked base types):
 
 - [manifest](#pluginfrontendcontext-manifest)
+- [locale](#pluginfrontendcontext-locale)
 - [signal](#pluginfrontendcontext-signal)
 - [cleanup](#pluginfrontendcontext-cleanup)
 - [registerView](#pluginfrontendcontext-registerview)
@@ -737,6 +740,16 @@ export interface PluginFrontendContext {
 
 ```ts
 readonly manifest: PluginManifest;
+```
+
+### PluginFrontendContext locale
+
+The host's effective UI locale at activation time ("en" or "zh-CN");
+pick bundled strings with it. A later language change applies to the
+next activation, not this window's already-mounted UI.
+
+```ts
+readonly locale: import("./i18n/locales.ts").AppLocale;
 ```
 
 ### PluginFrontendContext signal
@@ -1587,11 +1600,14 @@ export interface PluginManifest {
     minAppVersion: string;
     description?: string;
     author?: string;
+    translations?: PluginManifestTranslations;
     main?: string;
     backend?: string;
     styles?: string;
 }
 ```
+
+**Related types:** [PluginManifestTranslations](plugins.md#pluginmanifesttranslations).
 
 **Member index** (including nested object members; inherited members are defined in the linked base types):
 
@@ -1602,6 +1618,7 @@ export interface PluginManifest {
 - [minAppVersion](#pluginmanifest-minappversion)
 - [description](#pluginmanifest-description)
 - [author](#pluginmanifest-author)
+- [translations](#pluginmanifest-translations)
 - [main](#pluginmanifest-main)
 - [backend](#pluginmanifest-backend)
 - [styles](#pluginmanifest-styles)
@@ -1648,6 +1665,15 @@ description?: string;
 author?: string;
 ```
 
+### PluginManifest translations
+
+Localized name/description for the settings list; the plugin's own runtime
+copy is bundled in the module, not here. Absent keys fall back to English.
+
+```ts
+translations?: PluginManifestTranslations;
+```
+
 ### PluginManifest main
 
 Bundled browser ES module. Entry paths must not address plugin data.
@@ -1668,6 +1694,20 @@ backend?: string;
 
 ```ts
 styles?: string;
+```
+
+## PluginManifestTranslations
+
+Public SDK type, exported as `PluginManifestTranslations`. Import with `import type`; the SDK has no runtime exports.
+
+Host-owned manifest metadata translations, keyed by a shipped app locale.
+Purely additive: manifests without it behave exactly as before.
+
+```ts
+export type PluginManifestTranslations = Partial<Record<"en" | "zh-CN", {
+    name?: string;
+    description?: string;
+}>>;
 ```
 
 ## PluginNotification

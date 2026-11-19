@@ -1,5 +1,6 @@
 import type { PluginFrontendContext, PluginSurfaceTarget, PluginUi } from "learnharness-plugin-api";
 import { Scope } from "./dom.ts";
+import { createTranslator } from "./i18n.ts";
 import { mountGallery } from "./gallery.ts";
 import { openSurfaceDemo } from "./surfaces.ts";
 
@@ -15,15 +16,16 @@ export function activate(ctx: PluginFrontendContext): () => void {
     if (typeof ctx[method] !== "function") missingCapabilities(method);
   }
   if (missing.length) missingCapabilities(missing.map(method => `ui.${method}`).join(", "));
+  const t = createTranslator(ctx.locale);
   const scope = new Scope(ctx.signal);
   if (scope.signal.aborted) return scope.dispose;
   // Targets identify mounted page lifetimes. Retired pages must not be retained.
   const surfaces = new WeakMap<PluginSurfaceTarget, ReturnType<typeof openSurfaceDemo>>();
-  scope.own(ctx.registerView({ id: "gallery", name: "UI Showcase", mount: (root, signal) => mountGallery(root, ctx, signal) }));
-  scope.own(ctx.registerAction({ id: "open-gallery", name: "UI Showcase", run: () => ctx.app.openView("gallery") }));
+  scope.own(ctx.registerView({ id: "gallery", name: t("plugin.name"), mount: (root, signal) => mountGallery(root, ctx, t, signal) }));
+  scope.own(ctx.registerAction({ id: "open-gallery", name: t("plugin.name"), run: () => ctx.app.openView("gallery") }));
   scope.own(ctx.placeAction({ id: "gallery-sidebar", actionId: "open-gallery", location: "sidebar" }));
   scope.own(ctx.registerAction({
-    id: "open-surface", name: "UI Showcase surface",
+    id: "open-surface", name: t("surface.title"),
     run(context) {
       if (context.placement !== "top-bar" || context.surface !== "session") {
         throw new Error("UI Showcase surface requires a native session top-bar context.");
@@ -35,7 +37,7 @@ export function activate(ctx: PluginFrontendContext): () => void {
         existing.dispose();
         return;
       }
-      const handle = openSurfaceDemo(ctx.ui, target, scope.signal, () => {
+      const handle = openSurfaceDemo(ctx.ui, target, scope.signal, t, () => {
         if (surfaces.get(target) === handle) surfaces.delete(target);
       });
       // The host owns disposal on target retirement and scope abort; no strong

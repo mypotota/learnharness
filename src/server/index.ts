@@ -4,6 +4,7 @@
  * here; nothing under app/ touches src/store or src/agent directly.
  */
 
+export * from "./error-response.ts";
 export * from "./chat-handler.ts";
 export * from "./events-stream.ts";
 export * from "./chats.ts";
@@ -30,6 +31,9 @@ export {
 export { promptOverrides } from "../store/prompt-overrides.ts";
 export { themeStore } from "../store/themes.ts";
 export { readThemeBoot, type ThemeBoot } from "./theme-boot.ts";
+// The first-paint locale (i18n wave, 2026-11-19): the record's explicit
+// choice, else the request's language, else English.
+export { readLocaleBoot, type LocaleBoot } from "./locale-boot.ts";
 export { isValidSegmentPath } from "../core/prompt-segments.ts";
 // The canonical segment discovery/resolution lives in the agent layer
 // (composition is an agent concern); the barrel re-exports it for the

@@ -5,13 +5,14 @@ import type {
   PluginStandardComposerProps, PluginSurfaceProps, PluginSurfaceTarget, PluginTreeProps, PluginUi, PluginWidgetHandle, PluginWidgetOptions,
 } from "learnharness-plugin-api";
 import type { mountGallery } from "../src/gallery.ts";
+import type { Translator } from "../src/i18n.ts";
 import type { REQUIRED_UI_METHODS } from "../src/main.ts";
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Assert<T extends true> = T;
 
 export type GalleryMountContract = Assert<Equal<typeof mountGallery,
-  (root: HTMLElement, context: PluginFrontendContext, signal: AbortSignal) => () => void>>;
+  (root: HTMLElement, context: PluginFrontendContext, translate: Translator, signal: AbortSignal) => () => void>>;
 export type EveryPublicWidgetIsRequired = Assert<Equal<Exclude<keyof PluginUi, typeof REQUIRED_UI_METHODS[number]>, never>>;
 export type NativeTargetIsOpaque = Assert<Equal<{} extends PluginSurfaceTarget ? true : false, false>>;
 export type SurfaceSupportsBothPublicOverloads = Assert<PluginUi["openSurface"] extends {

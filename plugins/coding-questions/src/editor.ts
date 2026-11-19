@@ -6,6 +6,7 @@ import { languages } from "@codemirror/language-data";
 import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
 import type { PluginQuestionAnswerState, PluginQuestionEditorHandle, PluginQuestionEditorProps, PluginProblemEditorHandle, PluginProblemEditorProps } from "learnharness-plugin-api";
 import { isReady, normalizeLineEndings, type CodingPayload, type CodingQuestionPayload } from "./contract.ts";
+import { createTranslator, type Translator } from "./i18n.ts";
 import { supportsSyntaxDiagnostics, syntaxDiagnosticsExtension } from "./diagnostics.ts";
 
 export function findLanguage(name: string): LanguageDescription | null {
@@ -19,7 +20,7 @@ function codeFromAnswer(answer: PluginQuestionAnswerState): string {
 }
 
 /** Every editor is owned by one host mount; no global editor or plugin draft store. */
-function createCodeView(container: HTMLElement, language: string, code: string, active: boolean, onChange?: (code: string) => void) {
+function createCodeView(container: HTMLElement, language: string, code: string, active: boolean, t: Translator, onChange?: (code: string) => void) {
   const document = container.ownerDocument;
   const frame = document.createElement("div");
   frame.className = "lh-coding-question";
@@ -50,7 +51,7 @@ function createCodeView(container: HTMLElement, language: string, code: string, 
         EditorState.tabSize.of(4),
         indentUnit.of("    "),
         syntaxHighlighting(oneDarkHighlightStyle),
-        EditorView.contentAttributes.of({ "aria-label": onChange ? "Code answer" : "Submitted code" }),
+        EditorView.contentAttributes.of({ "aria-label": onChange ? t("editor.codeAnswer") : t("editor.submittedCode") }),
         editable.of([EditorState.readOnly.of(!active), EditorView.editable.of(active)]),
         languageSupport.of([]),
         keymap.of([...standardKeymap, ...historyKeymap].filter(binding => ![binding.key, binding.mac, binding.win, binding.linux].some(key => key !== undefined && reservedKeys.has(key)))),
@@ -62,20 +63,20 @@ function createCodeView(container: HTMLElement, language: string, code: string, 
   });
 
   const languageDescription = findLanguage(language);
-  if (!languageDescription) status.textContent = "Plain text";
+  if (!languageDescription) status.textContent = t("editor.plainText");
   else {
-    status.textContent = "Loading highlighting…";
+    status.textContent = t("editor.loadingHighlighting");
     void languageDescription.load().then(support => {
       if (disposed) return;
       // Catalog support may include tag insertion, completion keymaps or other
       // editing helpers. Install only its language/parser, never those extras.
       view.dispatch({ effects: languageSupport.reconfigure([
         support.language,
-        ...(onChange && supportsSyntaxDiagnostics(languageDescription.name) ? [syntaxDiagnosticsExtension()] : []),
+        ...(onChange && supportsSyntaxDiagnostics(languageDescription.name) ? [syntaxDiagnosticsExtension(t)] : []),
       ]) });
       status.textContent = "";
     }).catch(() => {
-      if (!disposed) status.textContent = "Plain text";
+      if (!disposed) status.textContent = t("editor.plainText");
     });
   }
 
@@ -109,14 +110,14 @@ type CodeEditorProps = Pick<PluginQuestionEditorProps, "answer" | "active" | "si
   readonly input: { payload: Pick<CodingPayload, "language" | "starterCode"> };
 };
 
-function mountCodeEditor(container: HTMLElement, props: CodeEditorProps): PluginQuestionEditorHandle {
+function mountCodeEditor(container: HTMLElement, props: CodeEditorProps, t: Translator): PluginQuestionEditorHandle {
   let disposed = false;
   let active = props.active;
   const initialCode = props.answer.status === "empty" ? normalizeLineEndings(props.input.payload.starterCode ?? "") : codeFromAnswer(props.answer);
   const publish = (code: string) => {
     if (!disposed && !props.signal.aborted) props.onChange({ status: isReady(code) ? "ready" : "unready", value: code });
   };
-  const editor = createCodeView(container, props.input.payload.language, initialCode, active, code => {
+  const editor = createCodeView(container, props.input.payload.language, initialCode, active, t, code => {
     if (active) publish(code);
   });
   const dispose = () => {
@@ -147,16 +148,16 @@ function mountCodeEditor(container: HTMLElement, props: CodeEditorProps): Plugin
   };
 }
 
-export function mountAnswerEditor(container: HTMLElement, props: PluginQuestionEditorProps<CodingQuestionPayload>): PluginQuestionEditorHandle {
-  return mountCodeEditor(container, props);
+export function mountAnswerEditor(container: HTMLElement, props: PluginQuestionEditorProps<CodingQuestionPayload>, t: Translator): PluginQuestionEditorHandle {
+  return mountCodeEditor(container, props, t);
 }
 
 /** Adapt only the public controlled-state vocabulary; no fabricated question identity. */
-export function mountSubmissionEditor(container: HTMLElement, props: PluginProblemEditorProps<CodingPayload>): PluginProblemEditorHandle {
+export function mountSubmissionEditor(container: HTMLElement, props: PluginProblemEditorProps<CodingPayload>, t: Translator): PluginProblemEditorHandle {
   const handle = mountCodeEditor(container, {
     input: props.input, signal: props.signal, active: props.active,
     answer: props.submission, onChange: props.onChange,
-  });
+  }, t);
   return {
     ...handle,
     update(next) { handle.update({ answer: next.submission, active: next.active }); },
@@ -167,8 +168,8 @@ export function mountAnswered(container: HTMLElement, props: {
   readonly input: { payload: Pick<CodingPayload, "language"> };
   readonly signal: AbortSignal;
   readonly answer: string;
-}): () => void {
-  const editor = createCodeView(container, props.input.payload.language, props.answer, false);
+}, t: Translator): () => void {
+  const editor = createCodeView(container, props.input.payload.language, props.answer, false, t);
   const dispose = () => {
     props.signal.removeEventListener("abort", dispose);
     editor.dispose();

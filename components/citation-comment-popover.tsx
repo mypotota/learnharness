@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { serializeCitation, withCitationComment } from "@/src/core";
 import { MenuShell } from "./menu-shell";
 import { useInteractionLayers, type CloseOutcome } from "./interaction-layers";
+import { useT } from "@/components/i18n/i18n-provider";
 import { isInteractionScopeEligible } from "./plugin-input-focus";
 import { CitationCommentEditor, commentDismissalOutcome, type CommentDismissal } from "./citation-comment-editor";
 import type { CitationEditTarget } from "./citation-actions";
@@ -25,6 +26,7 @@ export function CitationCommentPopover({ target, transcript, composer, onClose, 
 	const rootRef = useRef<HTMLDivElement>(null);
 	const anchorRef = useRef<HTMLElement | null>(null);
 	const controller = useInteractionLayers();
+	const t = useT();
 	const draftRef = useRef<string | null>(null);
 	const { citation } = target;
 
@@ -96,7 +98,7 @@ export function CitationCommentPopover({ target, transcript, composer, onClose, 
 	return (
 		<MenuShell testid="citation-comment-popover" anchorRef={anchorRef} getAnchorRect={getAnchorRect} preferredSide="down" align="right" menuClass="w-80 rounded-xl border bg-popover p-2 text-sm shadow-xl"
 			onClose={(reason) => dismissRef.current(reason === "escape" ? "escape" : "outside")}>
-			<div ref={rootRef} role="dialog" aria-label="Edit citation comment">
+			<div ref={rootRef} role="dialog" aria-label={t("citation.editCommentAria")}>
 				<CitationCommentEditor
 					initial={citation.comment}
 					onDraftChange={(draft) => { draftRef.current = draft; }}

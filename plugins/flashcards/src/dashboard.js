@@ -1,5 +1,5 @@
 // Library-wide scheduling summaries, rendered only from the backend snapshot.
-const states = [['new', 'New'], ['learning', 'Learning'], ['review', 'Review'], ['relearning', 'Relearning']];
+const states = ['new', 'learning', 'review', 'relearning'];
 const svgNamespace = 'http://www.w3.org/2000/svg';
 const count = value => Number.isFinite(value) && value > 0 ? value : 0;
 function element(tag, className, text) {
@@ -26,17 +26,18 @@ function dateLabels(day) {
   };
 }
 
-export function mountDashboard({ container, signal }) {
-  const root = element('section', 'fc-dashboard'); root.setAttribute('aria-label', 'Spaced repetition');
-  const heading = element('h2', 'fc-dashboard-heading', 'Spaced repetition');
-  const loading = element('p', 'fc-muted', 'Loading statistics…'); loading.setAttribute('role', 'status');
-  const stateTitle = element('h3', '', 'Current states');
+export function mountDashboard({ container, signal, t }) {
+  const root = element('section', 'fc-dashboard'); root.setAttribute('aria-label', t('dashboard.title'));
+  const heading = element('h2', 'fc-dashboard-heading', t('dashboard.title'));
+  const loading = element('p', 'fc-muted', t('dashboard.loading')); loading.setAttribute('role', 'status');
+  const stateTitle = element('h3', '', t('dashboard.currentStates'));
   const stateBar = element('div', 'fc-state-bar'); stateBar.setAttribute('aria-hidden', 'true');
   const legend = element('ul', 'fc-state-legend');
-  const stateCaption = element('p', 'fc-chart-caption', 'Active propositions with at least one cue.');
+  const stateCaption = element('p', 'fc-chart-caption', t('dashboard.statesCaption'));
   const charts = element('div', 'fc-chart-grid');
   root.append(heading, loading, stateTitle, stateBar, legend, stateCaption, charts);
-  const stateNodes = states.map(([key, label]) => {
+  const stateNodes = states.map(key => {
+    const label = t(`dashboard.state.${key}`);
     const segment = element('span', 'fc-state-segment'); segment.dataset.state = key; stateBar.append(segment);
     const item = element('li'); item.dataset.state = key;
     const name = element('span', '', label), value = element('strong', '', '0');
@@ -51,8 +52,8 @@ export function mountDashboard({ container, signal }) {
     scroll.append(svg); figure.append(chartTitle, scroll, element('figcaption', 'fc-chart-caption', caption)); charts.append(figure);
     return { title, svg };
   }
-  const due = chart('due', 'Scheduled due', 'Current scheduled due dates.');
-  const activity = chart('activity', 'Scheduled reviews', 'Scheduled review ratings recorded each day.');
+  const due = chart('due', t('dashboard.dueTitle'), t('dashboard.dueCaption'));
+  const activity = chart('activity', t('dashboard.activityTitle'), t('dashboard.activityCaption'));
   let disposed = false;
   function renderChart(chart, values, kind, width) {
     const rows = Array.isArray(values) ? values : [];
@@ -62,7 +63,7 @@ export function mountDashboard({ container, signal }) {
     const descriptions = [];
     for (const [index, row] of rows.entries()) {
       const labels = dateLabels(row.day);
-      const special = kind === 'due' && row.day === null ? 'Overdue' : (kind === 'due' && index === 1) || (kind === 'activity' && index === rows.length - 1) ? 'Today' : '';
+      const special = kind === 'due' && row.day === null ? t('dashboard.overdue') : (kind === 'due' && index === 1) || (kind === 'activity' && index === rows.length - 1) ? t('dashboard.today') : '';
       const label = special || (kind === 'due' ? labels.weekday : labels.date);
       const detail = special || labels.full, value = count(row.count);
       descriptions.push(`${detail}: ${value}`);
@@ -77,13 +78,13 @@ export function mountDashboard({ container, signal }) {
       if (kind === 'due' && !special) dateText.append(svgElement('tspan', { class: 'fc-chart-date', x, dy: 15 }, labels.date));
       group.append(dateText); chart.svg.append(group);
     }
-    const accessible = `${chart.title}: ${descriptions.length ? descriptions.join('; ') : 'No data available.'}`;
+    const accessible = `${chart.title}: ${descriptions.length ? descriptions.join('; ') : t('dashboard.noData')}`;
     chart.svg.setAttribute('aria-label', accessible);
   }
   function update(statistics) {
     if (disposed || signal.aborted) return;
     loading.hidden = statistics != null;
-    const total = states.reduce((sum, [key]) => sum + count(statistics?.states?.[key]), 0);
+    const total = states.reduce((sum, key) => sum + count(statistics?.states?.[key]), 0);
     for (const node of stateNodes) {
       const value = count(statistics?.states?.[node.key]);
       node.value.textContent = String(value); node.segment.style.width = `${total ? value / total * 100 : 0}%`;

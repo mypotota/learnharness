@@ -2,6 +2,7 @@
  * behind #451's floating companion. One thread per explanation/check segment.
  * Every main request captures new raw activity across all threads. Delivery
  * is append-only; a live helper never delays the teacher. */
+import { errorJson } from "./error-response.ts";
 import { emit } from "../core/events.ts";
 import type { ChatRecord, SideChatMessage, SideChatThread } from "../core/contracts.ts";
 import type { ChatStore } from "../core/ports.ts";
@@ -112,41 +113,41 @@ export function createSideChatService(deps: SideChatDeps): SideChatService {
 
 	function watch(chatId: string, threadId: string): Response {
 		const record = deps.chatStore.getChat(chatId);
-		if (!record) return Response.json({ error: "Unknown chat" }, { status: 404 });
+		if (!record) return errorJson("chats.unknown", 404);
 		const thread = record.sideChats?.find((entry) => entry.id === threadId);
-		return thread ? responseFor(chatId, thread, runs.get(runKey(chatId, threadId))) : Response.json({ error: "Unknown side conversation" }, { status: 404 });
+		return thread ? responseFor(chatId, thread, runs.get(runKey(chatId, threadId))) : errorJson("side_chat.unknown_conversation", 404);
 	}
 
 	async function ask(chatId: string, input: SideAskInput): Promise<Response> {
 		await deps.beforeAsk?.(chatId);
 		const initial = deps.chatStore.getChat(chatId);
-		if (!initial) return Response.json({ error: "Unknown chat" }, { status: 404 });
+		if (!initial) return errorJson("chats.unknown", 404);
 		const engine = await deps.engineFor(initial);
 		if (engine instanceof Response) return engine;
 		// No awaits between reading, deduplicating, saving and registration.
 		const record = deps.chatStore.getChat(chatId);
-		if (!record) return Response.json({ error: "Unknown chat" }, { status: 404 });
+		if (!record) return errorJson("chats.unknown", 404);
 		const threads = record.sideChats ?? [];
 		let target = input.threadId ? threads.find((thread) => thread.id === input.threadId) : undefined;
-		if (input.threadId && !target) return Response.json({ error: "Unknown side conversation" }, { status: 404 });
+		if (input.threadId && !target) return errorJson("side_chat.unknown_conversation", 404);
 		if (!target && input.anchor) {
 			const segment = sideSegmentId(record.messages, input.anchor.messageId);
-			if (!segment) return Response.json({ error: "The source is not a teaching segment in this session" }, { status: 400 });
+			if (!segment) return errorJson("side_chat.source_not_segment", 400);
 			target = threads.find((thread) => thread.anchor.messageId === segment) ?? newSideThread({
 				...input.anchor, messageId: segment, partId: `${segment}-t0`, blockIndex: 0,
 				// The client chooses a segment, not what the tutor allegedly said.
 				blockText: userFacingTextOf(record.messages.find((message) => message.id === segment && message.role === "assistant")?.content ?? [], failedOutputCallIds(record.messages)).join("\n\n").slice(0, 4_000) || "This teaching segment and its associated question.",
 			});
 		}
-		if (!target) return Response.json({ error: "A teaching segment or threadId is required" }, { status: 400 });
+		if (!target) return errorJson("side_chat.segment_required", 400);
 		if (input.quoteCitations) {
-			if (input.quoteCitations.length !== input.quotes.length) return Response.json({ error: "Quote sources do not match the passages" }, { status: 400 });
+			if (input.quoteCitations.length !== input.quotes.length) return errorJson("side_chat.quote_sources_mismatch", 400);
 			for (const [index, link] of input.quoteCitations.entries()) {
 				const citations = collectCitations(link);
 				const citation = citations[0]?.citation;
 				const source = citation && record.messages.find((message) => message.id === citation.messageId && message.role === "assistant");
 				if (citations.length !== 1 || citations[0]!.source !== link || !citation || citation.chatId !== chatId || citation.text.trim() !== input.quotes[index] || !source || sideSegmentId(record.messages, source.id) !== target.anchor.messageId) {
-					return Response.json({ error: "The quoted source is not in this teaching segment" }, { status: 400 });
+					return errorJson("side_chat.quoted_source_missing", 400);
 				}
 			}
 		}
@@ -155,7 +156,7 @@ export function createSideChatService(deps: SideChatDeps): SideChatService {
 		if (input.requestId && (active?.operationId === input.requestId || target.messages.some((message) => message.id === input.requestId || message.requestId === input.requestId))) {
 			return responseFor(chatId, target, active);
 		}
-		if (active) return Response.json({ error: "This side conversation is still being answered" }, { status: 409 });
+		if (active) return errorJson("side_chat.still_answering", 409);
 
 		let thread = target;
 		let modelThread = target;
@@ -164,7 +165,7 @@ export function createSideChatService(deps: SideChatDeps): SideChatService {
 			if (last?.role === "assistant" && last.error !== undefined) {
 				// Keep failed evidence in durable/UI history; omit only from this retry request.
 				modelThread = { ...target, messages: target.messages.slice(0, target.messages.findLastIndex((message) => message.role === "user") + 1) };
-			} else if (!sideThreadAwaitsAnswer(target)) return Response.json({ error: "Nothing to retry" }, { status: 409 });
+			} else if (!sideThreadAwaitsAnswer(target)) return errorJson("side_chat.nothing_to_retry", 409);
 		} else {
 			const question = newSideQuestion(input.text, input.quotes);
 			if (input.quoteCitations?.length) question.quoteCitations = [...input.quoteCitations];
@@ -178,11 +179,11 @@ export function createSideChatService(deps: SideChatDeps): SideChatService {
 		const instructions = deps.instructions();
 		const estimatedTokens = Math.ceil((instructions.length + turns.reduce((sum, turn) => sum + turn.text.length, 0)) / 4);
 		if (engine.model.contextWindow > 0 && estimatedTokens > Math.max(1, engine.model.contextWindow - Math.min(COMPACTION_RESERVE_TOKENS, engine.model.maxTokens))) {
-			return Response.json({ error: "This side conversation and lesson exceed the selected model's context window. Select a model with a larger context window." }, { status: 400 });
+			return errorJson("side_chat.context_exceeded", 400);
 		}
 		const stored = deps.chatStore.updateSideChats(chatId, (current) => current.some((entry) => entry.id === thread.id)
 			? current.map((entry) => entry.id === thread.id ? thread : entry) : [...current, thread]);
-		if (!stored) return Response.json({ error: "Unknown chat" }, { status: 404 });
+		if (!stored) return errorJson("chats.unknown", 404);
 		const run: SideRun = {
 			controller: new AbortController(), text: "", answerId: newMessageId(), updatedAt: new Date().toISOString(),
 			model: `${engine.model.provider}:${engine.model.id}`, operationId: input.requestId,
@@ -274,7 +275,7 @@ async function productionEngineFor(record: ChatRecord): Promise<SideEngine | Res
 		const engine = piEngineForSpec(spec, false, { captured() {}, beforeDispatch() {}, noDispatch() { denied = true; } },
 			() => stores.settingsStore.readSettings()?.models?.strong?.cacheRetention);
 		return { ...engine, sideUsageAdmitted: () => !denied };
-	} catch { return Response.json({ error: "The selected model is unavailable." }, { status: 503 }); }
+	} catch { return errorJson("side_chat.model_unavailable", 503); }
 }
 interface SideChatGlobal { __lhSideChatService?: SideChatService }
 export const sideChats: SideChatService = ((globalThis as typeof globalThis & SideChatGlobal).__lhSideChatService ??= createSideChatService({

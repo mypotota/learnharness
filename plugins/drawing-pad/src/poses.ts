@@ -1,4 +1,7 @@
 import type { PluginSubmissionOccurrence } from "learnharness-plugin-api";
+import { createTranslator, type Translator } from "./i18n.ts";
+
+const english = createTranslator("en");
 
 // Read only the small acknowledgment vocabulary; do not instantiate arbitrary
 // recursively immutable custom payload/solution types while inspecting identity.
@@ -39,9 +42,9 @@ export function acceptedPoseKeys(messages: History): string[] {
   });
   return poses;
 }
-export function parsePoseResponse(value: unknown, sessionId: string): string[] {
+export function parsePoseResponse(value: unknown, sessionId: string, t: Translator = english): string[] {
   const input = object(value);
   if (!input || input.sessionId !== sessionId || !Array.isArray(input.poses) || !input.poses.every(pose => typeof pose === "string"))
-    throw new Error("Could not confirm the current practice problem. Your drawing has been kept.");
+    throw new Error(t("poses.confirmFailed"));
   return input.poses as string[];
 }
