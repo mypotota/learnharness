@@ -1,0 +1,75 @@
+@import "../../app/globals.css";
+
+/* Tailwind 4 scans from the Vite root (mobile/) by default. The reused
+   components and pages live at the repository root, so they must be declared
+   explicitly or their utilities never reach the mobile stylesheet. */
+@source "../../components";
+@source "../../app";
+
+/* The reused project styles use next/font's variables. Android has no
+   guaranteed download at runtime, so P0 falls back to the platform faces.
+   Bundled font files can replace these variables later without touching
+   globals.css. */
+:root,
+.dark,
+.light {
+	--font-jetbrains: ui-monospace, SFMono-Regular, Menlo, monospace;
+	--font-sans3: -apple-system, "Roboto", "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Mobile shell primitives: safe areas and touch ergonomics. */
+html,
+body {
+	overscroll-behavior-y: none;
+	-webkit-tap-highlight-color: transparent;
+}
+
+/* The document itself never scrolls: the shell owns its height and each page
+   scrolls inside. Without this, focusing the composer makes the WebView
+   scroll the whole document and the top bar disappears under the keyboard. */
+html,
+body,
+#root {
+	height: 100%;
+	overflow: hidden;
+}
+
+button,
+a,
+select,
+input,
+textarea {
+	touch-action: manipulation;
+}
+
+.lh-safe-top {
+	padding-top: env(safe-area-inset-top);
+}
+
+.lh-safe-bottom {
+	padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 44px minimum target for the shell's icon buttons. */
+.lh-touch {
+	display: inline-flex;
+	min-width: 44px;
+	min-height: 44px;
+	align-items: center;
+	justify-content: center;
+}
+
+/* The overlay drawer owns the page while it is open. */
+.lh-no-scroll {
+	overflow: hidden;
+}
+
+.lh-drawer {
+	padding-top: env(safe-area-inset-top);
+}
+
+/* Native-feeling momentum + no scroll chaining into the page behind. */
+.lh-scroll {
+	overscroll-behavior: contain;
+	-webkit-overflow-scrolling: touch;
+}
