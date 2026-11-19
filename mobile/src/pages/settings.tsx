@@ -6,6 +6,7 @@ import { APP_LOCALES, LOCALE_LABELS } from "@/src/core/i18n";
 import { useI18n, useLocaleControl, useT } from "../platform/i18n-provider";
 import { persistAppearance } from "../appearance-boot";
 import { BottomSheet, SheetOption } from "../components/bottom-sheet";
+import { ModelSettingsSection } from "../components/model-settings";
 import { MOBILE_STRINGS } from "../strings";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -70,12 +71,7 @@ export function SettingsPage() {
 				</Row>
 			</Section>
 
-			<Section title={strings.models}>
-				<div className="px-3.5 py-3.5">
-					<p className="font-prose text-(length:--lh-prose-size)">{strings.models}</p>
-					<p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{strings.modelsDescription}</p>
-				</div>
-			</Section>
+			<ModelSettingsSection />
 
 			<Section title={strings.about}>
 				<Row label={strings.version}>

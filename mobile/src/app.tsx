@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { readBootAppearance } from "./appearance-boot";
+import { bootEngine } from "./engine/boot";
 import { AppearanceProvider, useAppearance } from "./platform/appearance-provider";
 import { ChatPage } from "./pages/chat";
 import { DraftPage, HomePage } from "./pages/home";
@@ -35,6 +36,12 @@ export function App() {
 	const pathname = usePathname();
 	const [appearance] = useState(() => readBootAppearance());
 	const [locale] = useState(() => readBootLocale());
+
+	useEffect(() => {
+		// Start the native proxy before any model fetch and warm the catalogs
+		// while the shell renders. A failure surfaces on the first send.
+		void bootEngine().catch(() => {});
+	}, []);
 
 	const chatId =
 		pathname.startsWith("/chat/") && pathname !== "/chat/new"

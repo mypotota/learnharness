@@ -3,7 +3,7 @@ import { ArrowUpRightIcon, BookOpenIcon, DumbbellIcon } from "lucide-react";
 import { MobileComposer } from "../components/composer";
 import { useT, useI18n } from "../platform/i18n-provider";
 import { navigate } from "../platform/next-navigation";
-import { appendMessage, createSession, useSessions, type SessionKind } from "../store";
+import { createSession, useSessions, type SessionKind } from "../store";
 import { MOBILE_STRINGS } from "../strings";
 import { cn } from "@/lib/utils";
 
@@ -31,14 +31,16 @@ function ModeSwitch({ mode, onChange }: { mode: SessionKind; onChange: (mode: Se
 }
 
 function useStartSession() {
-	const { locale } = useI18n();
-	const strings = MOBILE_STRINGS[locale];
 	return (text: string, kind: SessionKind) => {
 		const session = createSession(text, kind);
+		// The session page owns the first streamed turn; this flag is consumed
+		// on mount so the reply starts without a second tap.
+		try {
+			sessionStorage.setItem(`lh:mobile:auto:${session.id}`, "1");
+		} catch {
+			/* storage unavailable — the user can send the next line manually */
+		}
 		navigate(`/chat/${session.id}`);
-		// P1 demo: a reply lands after the navigation so the transcript shows
-		// both roles. P2 replaces this with the streamed turn.
-		window.setTimeout(() => appendMessage(session.id, "assistant", strings.demoReply), 700);
 	};
 }
 
