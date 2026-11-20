@@ -13,6 +13,7 @@ import { layout as dagreLayout } from "dagre-d3-es/src/dagre/index.js";
 // d3's curveBasis (the exact recipe dagre-d3's own renderer uses).
 import { curveBasis, line } from "d3-shape";
 import { fitGraphView, fitZoomFor, zoomedGraphView, type Viewport } from "@/components/pan-zoom";
+import { usePinchZoom } from "@/components/use-pinch-zoom";
 import type { PlanBlockData, PlanNodeStatus, PlanTree } from "@/src/core";
 import { derivedNodeStatus, derivePlanStatuses } from "@/src/core";
 import { Hint } from "@/components/ui/hint";
@@ -830,7 +831,24 @@ export function PlanPopup({ messages, onClose }: { messages: readonly PopupMessa
 	// per-frame — the transition is off while dragging or it rubber-bands.
 	const [panning, setPanning] = useState(false);
 	const dragRef = useRef<{ px: number; py: number; x: number; y: number; moved: boolean } | null>(null);
+	// Two fingers zoom/pan on touch (no wheel there); one finger keeps the drag.
+	const pinch = usePinchZoom({
+		view,
+		setView,
+		floor: fitZoom,
+		box,
+		size,
+		onAdjust: () => {
+			userAdjustedRef.current = true;
+		},
+		onPinchChange: setPanning,
+	});
 	const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+		if (pinch.down(e)) {
+			dragRef.current = null;
+			e.currentTarget.setPointerCapture(e.pointerId);
+			return;
+		}
 		if (e.button !== 0) return;
 		if ((e.target as HTMLElement).closest("button")) return;
 		if (atFloor) return;
@@ -907,9 +925,19 @@ export function PlanPopup({ messages, onClose }: { messages: readonly PopupMessa
 					atFloor ? "cursor-default" : "cursor-grab",
 				)}
 				onPointerDown={startDrag}
-				onPointerMove={moveDrag}
-				onPointerUp={endDrag}
-				onPointerCancel={endDrag}
+				onPointerMove={(e) => {
+					if (!pinch.move(e)) moveDrag(e);
+				}}
+				onPointerUp={(e) => {
+					const stillPinching = pinch.up(e);
+					endDrag(e);
+					if (stillPinching) setPanning(true);
+				}}
+				onPointerCancel={(e) => {
+					const stillPinching = pinch.up(e);
+					endDrag(e);
+					if (stillPinching) setPanning(true);
+				}}
 			>
 				{tree ? (
 					<>

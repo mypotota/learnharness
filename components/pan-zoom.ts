@@ -53,3 +53,20 @@ export function zoomedGraphView(
 	const k = zoom / view.zoom;
 	return { zoom, x: focus.x - (focus.x - view.x) * k, y: focus.y - (focus.y - view.y) * k };
 }
+
+/** Two-finger pinch: snapshot at gesture start + current finger geometry.
+ *  Zoom anchors at the pinch midpoint (the content under the fingers stays
+ *  put) and the view follows the midpoint, so pinching and dragging at once
+ *  both work. Touch screens have no wheel — this is their zoom path. Pure. */
+export function pinchedGraphView(
+	start: Viewport,
+	factor: number,
+	floor: number,
+	startMid: { x: number; y: number },
+	mid: { x: number; y: number },
+	box: { w: number; h: number },
+	viewport: { w: number; h: number },
+): Viewport {
+	const zoomed = zoomedGraphView(start, factor, floor, startMid, box, viewport);
+	return { ...zoomed, x: zoomed.x + (mid.x - startMid.x), y: zoomed.y + (mid.y - startMid.y) };
+}

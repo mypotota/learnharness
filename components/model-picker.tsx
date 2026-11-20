@@ -274,7 +274,7 @@ export function ModelControl({ chatId, onModelChange }: { chatId?: string; onMod
 	};
 
 	return (
-		<div ref={containerRef} className="relative flex min-w-0 items-center gap-1.5" data-testid="model-control">
+		<div ref={containerRef} className="relative flex min-w-0 items-center gap-1.5 max-sm:gap-1" data-testid="model-control">
 			<Hint
 				label={effectiveId ? `${effectiveProvider ? `${effectiveProvider}:` : ""}${effectiveId}` : "Model selector"}
 				action="open-model-picker"

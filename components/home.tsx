@@ -308,7 +308,7 @@ export function Home({
 										data-testid={`home-mode-${m}`}
 										onClick={() => setMode(m)}
 										className={
-											"flex items-center gap-1 whitespace-nowrap rounded-sm px-2 py-0.5 text-[11px] uppercase tracking-wider transition-colors max-md:min-h-9 max-md:px-2.5 max-md:py-1.5 " +
+											"flex items-center gap-1 whitespace-nowrap rounded-sm px-2 py-0.5 text-[11px] uppercase tracking-wider transition-colors max-md:min-h-9 max-md:px-2 max-md:py-1.5 " +
 											(mode === m
 												? "bg-accent text-foreground"
 												: "text-muted-foreground hover:text-foreground")

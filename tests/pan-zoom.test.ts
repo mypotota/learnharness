@@ -9,7 +9,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { FIT_ZOOM_MAX, ZOOM_MAX, fitGraphView, fitZoomFor, zoomedGraphView } from "../components/pan-zoom.ts";
+import { FIT_ZOOM_MAX, ZOOM_MAX, fitGraphView, fitZoomFor, pinchedGraphView, zoomedGraphView } from "../components/pan-zoom.ts";
 
 describe("fitZoomFor", () => {
 	it("binds on the axis that runs out of room (wide box → width)", () => {
@@ -68,5 +68,27 @@ describe("zoomedGraphView", () => {
 		const view = { x: -37, y: 12, zoom: 1 };
 		const out = zoomedGraphView(view, 1, floor, { x: 0, y: 0 }, box, viewport);
 		assert.equal(out, view);
+	});
+});
+
+describe("pinchedGraphView", () => {
+	const box = { w: 200, h: 200 };
+	const viewport = { w: 400, h: 400 };
+
+	it("zooms around the pinch midpoint and follows it", () => {
+		const out = pinchedGraphView({ x: 0, y: 0, zoom: 1 }, 2, 0.5, { x: 100, y: 100 }, { x: 110, y: 100 }, box, viewport);
+		assert.equal(out.zoom, 2);
+		assert.equal(out.x, -90); // 100 - (100-0)*2 + 10
+		assert.equal(out.y, -100);
+	});
+
+	it("re-fits when the pinch goes below the floor, like the wheel", () => {
+		const out = pinchedGraphView({ x: 0, y: 0, zoom: 1 }, 0.1, 0.8, { x: 100, y: 100 }, { x: 100, y: 100 }, box, viewport);
+		assert.deepEqual(out, fitGraphView(box, viewport, 0.8));
+	});
+
+	it("never passes the 4× ceiling", () => {
+		const out = pinchedGraphView({ x: 0, y: 0, zoom: 1 }, 99, 0.5, { x: 0, y: 0 }, { x: 0, y: 0 }, box, viewport);
+		assert.equal(out.zoom, ZOOM_MAX);
 	});
 });

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { MaximizeIcon, MinusIcon, PlusIcon, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fitGraphView, fitZoomFor, zoomedGraphView, type Viewport } from "@/components/pan-zoom";
+import { usePinchZoom } from "@/components/use-pinch-zoom";
 import { renderMermaid } from "@/components/mermaid-render";
 import { useAppearance } from "@/components/settings/appearance";
 import { MermaidError } from "@/components/mermaid-error";
@@ -185,7 +186,25 @@ export function MermaidOverlay({
 	}, [fitZoom, box, size]);
 
 	const dragRef = useRef<{ px: number; py: number; x: number; y: number; moved: boolean } | null>(null);
+	// Touch screens have no wheel: two fingers zoom (and pan) via the hook;
+	// one finger keeps the drag below.
+	const pinch = usePinchZoom({
+		view,
+		setView,
+		floor: fitZoom,
+		box,
+		size,
+		onAdjust: () => {
+			userAdjustedRef.current = true;
+		},
+		onPinchChange: setPanning,
+	});
 	const startDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+		if (pinch.down(e)) {
+			dragRef.current = null;
+			e.currentTarget.setPointerCapture(e.pointerId);
+			return;
+		}
 		if (e.button !== 0) return;
 		if ((e.target as HTMLElement).closest("button")) return;
 		if (atFloor) return;
@@ -258,9 +277,19 @@ export function MermaidOverlay({
 					atFloor ? "cursor-default" : "cursor-grab",
 				)}
 				onPointerDown={startDrag}
-				onPointerMove={moveDrag}
-				onPointerUp={endDrag}
-				onPointerCancel={endDrag}
+				onPointerMove={(e) => {
+					if (!pinch.move(e)) moveDrag(e);
+				}}
+				onPointerUp={(e) => {
+					const stillPinching = pinch.up(e);
+					endDrag(e);
+					if (stillPinching) setPanning(true);
+				}}
+				onPointerCancel={(e) => {
+					const stillPinching = pinch.up(e);
+					endDrag(e);
+					if (stillPinching) setPanning(true);
+				}}
 			>
 				{error ? (
 					<div className="flex h-full items-center justify-center p-4">

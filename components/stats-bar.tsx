@@ -132,9 +132,10 @@ export function StatsBar({
 			// must re-enable events or every control on it is dead (the model-
 			// control wave caught this live: buttons rendered, clicks never landed).
 			// Phones keep ONE line (owner): stats + dictation + model + thinking
-			// all stay in the row — the controls shrink instead of wrapping
-			// (dictation drops its label, pills go 11px/28px, stats hides cost).
-			className="pointer-events-auto relative flex flex-wrap items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground max-md:gap-2 max-md:px-2 max-sm:flex-nowrap max-sm:gap-1.5 max-sm:text-[11px]"
+			// all stay in the row. When the line still runs out (mode switch +
+			// long model id on a 351px screen) the row scrolls sideways instead
+			// of ellipsizing the model name away.
+			className="pointer-events-auto relative flex flex-wrap items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground max-md:gap-2 max-md:px-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:text-[11px] max-sm:overflow-x-auto max-sm:[scrollbar-width:none] max-sm:[&::-webkit-scrollbar]:hidden"
 		>
 			{/* The summary button + its popover: the popover anchors to this
 			    wrapper, CENTERED over the button itself (owner, stats round 2)
@@ -250,7 +251,7 @@ export function StatsBar({
 			{/* The model + thinking control — one controller for the conversation
 			    agents (prober/teacher); the record's `turns` above still folds
 			    the ACTUAL models billed, regardless of what the picker says. */}
-			<div className="flex min-w-0 items-center">
+			<div className="flex min-w-0 items-center max-sm:shrink-0">
 				<ModelControl chatId={chatId} onModelChange={modelChanged} />
 			</div>
 		</div>
