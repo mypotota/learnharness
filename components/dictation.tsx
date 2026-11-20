@@ -829,7 +829,7 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 					disabled={disabled || blocked}
 					aria-label={error ? t("composer.dictationFailed", { error }) : t("composer.startDictation")}
 					data-testid="dictation-toggle"
-					className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border/50 bg-card/50 text-xs text-muted-foreground/70 shadow-lg backdrop-blur transition-colors hover:border-border hover:text-muted-foreground max-md:min-h-9 max-md:max-w-28 max-sm:h-8 max-sm:w-8 max-sm:min-h-8 max-sm:max-w-none max-sm:flex-none max-sm:px-0"
+					className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border/50 bg-card/50 text-xs text-muted-foreground/70 shadow-lg backdrop-blur transition-colors hover:border-border hover:text-muted-foreground max-md:min-h-9 max-md:max-w-28 max-sm:h-8 max-sm:w-8 max-sm:min-h-8 max-sm:max-w-none max-sm:flex-none max-sm:px-0 max-sm:shadow-none"
 				>
 					<MicIcon className="size-3.5" />
 					<span className={error ? "max-w-full truncate" : "max-w-full truncate max-sm:hidden"}>{error ?? t("composer.dictate")}</span>

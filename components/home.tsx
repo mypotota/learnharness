@@ -210,7 +210,7 @@ export function Home({
 			    OVER the graph (no gradient: the graph runs clean under it to the
 			    bottom edge). Matches chat.tsx's DOCK geometry (max-w-[46rem]
 			    px-4) so nothing shifts when a session starts (owner). */}
-			<div className="pointer-events-none absolute inset-x-0 bottom-0 pb-5">
+			<div className="pointer-events-none absolute inset-x-0 bottom-0 pb-5 max-sm:pb-2">
 				<div className="pointer-events-auto mx-auto w-full max-w-[46rem] px-4">
 					{/* The pick bar (owner vision, 2026-10-04): the chain
 					    table's selection is PERSISTENT — picked
@@ -245,7 +245,7 @@ export function Home({
 					{startError && <p role="alert" className="mb-2 text-sm text-destructive">{t("chat.openingFailure")}</p>}
 					<form
 						data-attachment-composer=""
-						className="flex items-end gap-1.5 rounded-2xl border bg-card p-1.5 shadow-lg"
+						className="flex items-end gap-1.5 rounded-2xl border bg-card p-1.5 shadow-lg max-sm:shadow-none"
 					onSubmit={(e) => {
 						e.preventDefault();
 						void start();
@@ -308,7 +308,7 @@ export function Home({
 										data-testid={`home-mode-${m}`}
 										onClick={() => setMode(m)}
 										className={
-											"flex items-center gap-1 whitespace-nowrap rounded-sm px-2 py-0.5 text-[11px] uppercase tracking-wider transition-colors max-md:min-h-9 max-md:px-2 max-md:py-1.5 " +
+											"flex items-center gap-1 whitespace-nowrap rounded-sm px-2 py-0.5 text-[11px] uppercase tracking-wider transition-colors max-md:min-h-9 max-md:px-2 max-md:py-1.5 max-sm:min-h-8 max-sm:px-1.5 max-sm:py-1 " +
 											(mode === m
 												? "bg-accent text-foreground"
 												: "text-muted-foreground hover:text-foreground")

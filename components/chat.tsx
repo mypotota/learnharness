@@ -2738,8 +2738,9 @@ export function DockOverlay({
 
 	// The overlay must not paint over the scroller's scrollbar (owner, scroll
 	// round 2): the scroller reserves symmetric gutters (scrollbar-gutter:
-	// stable both-edges), so inset the overlay's right edge by the gutter —
-	// zero on macOS overlay scrollbars, the real width on classic platforms.
+	// stable both-edges), so inset BOTH overlay edges by the gutter — zero on
+	// macOS overlay scrollbars, the real width on classic platforms. Insetting
+	// only the right edge pushed the dock ~4px left of the transcript's centre.
 	// Budget the whole solid dock, leaving only its question area flexible.
 	// The hook measures natural, visible content before the morph/reserve
 	// effect below. Short windows scroll the reading/question/answer body;
@@ -2929,9 +2930,9 @@ export function DockOverlay({
 	});
 
 	return (
-		<div className="pointer-events-none absolute inset-x-0 bottom-0" style={{ right: sbInset }}>
+		<div className="pointer-events-none absolute inset-x-0 bottom-0" style={{ left: sbInset, right: sbInset }}>
 			<div className="h-24 bg-gradient-to-t from-background via-background/85 to-transparent" />
-			<div ref={blockRef} className="relative bg-background pb-5">
+			<div ref={blockRef} className="relative bg-background pb-5 max-sm:pb-2">
 				<div className={DOCK}>
 					<div ref={viewportRef} data-dock-viewport="" className="pointer-events-auto">
 					<div ref={bodyRef}>
@@ -2965,7 +2966,7 @@ export function DockOverlay({
 							claim={revealPending}
 						/>
 					)}
-					<div ref={shellRef} data-attachment-composer="" className="pointer-events-auto overflow-hidden rounded-2xl border bg-card shadow-lg">
+					<div ref={shellRef} data-attachment-composer="" className="pointer-events-auto overflow-hidden rounded-2xl border bg-card shadow-lg max-sm:shadow-none">
 						{preparationStatus}
 						{/* Include descendant margins (notably practice thinking's
 						    bottom margin) in the natural content measurement. */}
