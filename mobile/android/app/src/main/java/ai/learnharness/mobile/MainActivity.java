@@ -2,6 +2,7 @@ package ai.learnharness.mobile;
 
 import android.content.pm.ApplicationInfo;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -50,6 +51,16 @@ public class MainActivity extends BridgeActivity {
                 () -> runOnUiThread(this::onServerReady),
                 () -> runOnUiThread(this::onServerFailed));
 
+        // The turn keep-alive's notification (Android 13+): without the
+        // grant the foreground service still runs — only its "generating"
+        // notification is hidden. Ask once at startup so the user sees why
+        // the phone stays awake during a turn.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                        != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 41);
+        }
+
         // Predictive back (the manifest opts in): androidx's dispatcher owns
         // the gesture, and its fallback bypasses this Activity's
         // onBackPressed override — a raw OnBackInvokedCallback registered
@@ -73,6 +84,33 @@ public class MainActivity extends BridgeActivity {
     public void onDestroy() {
         RenderService.stop();
         super.onDestroy();
+    }
+
+    /** The WebView's own visibilitychange is unreliable here: on this
+     *  Chromium the background transition either never fires or reports a
+     *  stale "visible", so the web layer never learns it was hidden and a
+     *  frozen stream stays dead (owner bug 2026-11-20). The Activity
+     *  lifecycle is authoritative: push both transitions into the page.
+     *  Queued JS preserves the hidden→visible order even when the pause
+     *  callback only executes after the process unfreezes. */
+    @Override
+    public void onPause() {
+        super.onPause();
+        pushNativeVisibility("hidden");
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        pushNativeVisibility("visible");
+    }
+
+    private void pushNativeVisibility(String state) {
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView == null) return;
+        webView.evaluateJavascript(
+                "window.lhNativeVisibility&&window.lhNativeVisibility('" + state + "')",
+                null);
     }
 
     /** Web overlays first (drawer, settings), then in-app history; only the
@@ -171,6 +209,19 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public String getSafeArea() {
             return safeArea[0] + "," + safeArea[1] + "," + safeArea[2] + "," + safeArea[3];
+        }
+
+        /** The turn keep-alive toggle: the web layer calls this whenever the
+         *  busy span starts or ends, holding the app out of the cached state
+         *  so the embedded server's upstream LLM socket survives a
+         *  background stretch (owner bug 2026-11-20). */
+        @JavascriptInterface
+        public void setTurnActive(boolean active) {
+            if (active) {
+                TurnKeepAliveService.start(MainActivity.this);
+            } else {
+                TurnKeepAliveService.stop(MainActivity.this);
+            }
         }
 
         @JavascriptInterface

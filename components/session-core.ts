@@ -786,8 +786,16 @@ export class SessionModel {
 	 * and the refetch absorbs it (write-ahead adoption) before the replay
 	 * lands on top. The stream then replays the turn from its first event
 	 * through the SAME consume path.
+	 *
+	 * `retries` bounds the one transport-failure retry: on a phone the
+	 * unfreeze after a background stretch kills every socket at once, and
+	 * the first reattach fetch can fail on the just-reset connection even
+	 * though loopback is healthy a moment later (instrumented 2026-11-20 —
+	 * the rescue's own attach died with a raw "terminated"). Only
+	 * transport-shaped errors retry (StreamReadError, fetch's TypeError);
+	 * server refusals and event-apply bugs surface immediately.
 	 */
-	async resumeStream(refetchRecordFirst = true, allowRecovery = true): Promise<void> {
+	async resumeStream(refetchRecordFirst = true, allowRecovery = true, retries = 0): Promise<void> {
 		// External reattachment supersedes unresolved POST preview ownership.
 		// Normal post-ack reattach keeps its preview until the atomic record swap.
 		this.retireImagePreview(this.imagePostOwner);
@@ -840,6 +848,13 @@ export class SessionModel {
 			await this.consumeStream(res, controller, allowRecovery);
 		} catch (err) {
 			if (this.consumeAbort !== controller || controller.signal.aborted) return; // intentionally cancelled
+			// The one transport-failure retry (see the method doc): the
+			// unfreeze race can fail the first attach on a dead socket.
+			if (allowRecovery && retries < 1 && (err instanceof StreamReadError || err instanceof TypeError)) {
+				await delay(1000, controller.signal);
+				if (this.consumeAbort !== controller || controller.signal.aborted) return;
+				return this.resumeStream(refetchRecordFirst, allowRecovery, retries + 1);
+			}
 			this.retireImagePreview(this.imagePreview?.owner ?? null);
 			// A failed record read can leave the optimistic answer in the tail.
 			// Restore its Submit affordance; the next attempt reconciles first.

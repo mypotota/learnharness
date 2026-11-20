@@ -1379,27 +1379,72 @@ export function Chat({
 	 * the next visible frame reattach through the ordinary wire. A live turn
 	 * replays; a settled one answers turn-settled (carrying the retained
 	 * failure notice when the turn genuinely died), and that settle path
-	 * clears the banner and adopts the record. One pass per hide/show. */
+	 * clears the banner and adopts the record. One pass per hide/show.
+	 *
+	 * It must fire for EVERY busy state, not just the error banner: while
+	 * the model is THINKING the stream has not yielded a frame yet, so a
+	 * hidden stretch can freeze the socket (or reject only after the
+	 * show handler already ran) — status still "submitted"/"streaming" and
+	 * no retry would ever come. resumeStream aborts the dead or hung
+	 * attempt, so reattaching unconditionally is safe and idempotent; a
+	 * truly live stream is simply replaced by the same turn's replay.
+	 *
+	 * The trigger cannot be visibilitychange alone: in the Android WebView
+	 * (instrumented 2026-11-20) the background transition either never
+	 * fires or reports a stale "visible", so "hidden" was never marked and
+	 * the rescue never ran. The Activity lifecycle pushes the truth through
+	 * window.lhNativeVisibility (MainActivity.onPause/onResume) as a
+	 * CustomEvent; visibilitychange stays registered as the desktop-browser
+	 * fallback. Both funnel through onVisibility. */
 	const hiddenSinceRef = useRef(false);
 	useEffect(() => {
-		const onVisibility = () => {
-			if (document.visibilityState === "hidden") {
+		const onVisibility = (state: "hidden" | "visible") => {
+			if (state === "hidden") {
 				hiddenSinceRef.current = true;
 				return;
 			}
 			if (!hiddenSinceRef.current) return;
 			hiddenSinceRef.current = false;
-			// Only a dead attached view needs healing: a dropped-stream
-			// banner or the fallback busy flag with no stream behind it.
-			if (status !== "error" && !turnInFlightRef.current) return;
-			if (status === "submitted" || status === "streaming") return;
+			// Heal any view that is not plainly healthy: the dropped-stream
+			// banner, the fallback busy flag with no stream behind it, OR an
+			// error banner whose status already fell back to ready (the
+			// freeze race can settle a failed reattach as ready while the
+			// retained error keeps the banner up — instrumented 2026-11-20).
+			// Only a clean idle view is left alone.
+			if (status === "ready" && !turnInFlightRef.current && !error) return;
 			clearError();
 			setTurnInFlight(true);
 			void resumeStream();
 		};
-		document.addEventListener("visibilitychange", onVisibility);
-		return () => document.removeEventListener("visibilitychange", onVisibility);
-	}, [status, clearError, resumeStream]);
+		const onVisibilityEvent = () => onVisibility(document.visibilityState === "hidden" ? "hidden" : "visible");
+		const onNativeVisibility = (event: Event) => onVisibility((event as CustomEvent<string>).detail === "visible" ? "visible" : "hidden");
+		(window as unknown as { lhNativeVisibility?: (state: string) => void }).lhNativeVisibility =
+			(state) => window.dispatchEvent(new CustomEvent("lh-native-visibility", { detail: state }));
+		document.addEventListener("visibilitychange", onVisibilityEvent);
+		window.addEventListener("lh-native-visibility", onNativeVisibility);
+		return () => {
+			document.removeEventListener("visibilitychange", onVisibilityEvent);
+			window.removeEventListener("lh-native-visibility", onNativeVisibility);
+		};
+	}, [status, error, clearError, resumeStream]);
+
+	/** The native turn keep-alive (mobile): hold the app out of Android's
+	 *  cached state for the whole busy span. Without it the cached-app
+	 *  network policy cuts the embedded server's upstream LLM socket a few
+	 *  seconds after backgrounding and the turn dies mid-generation
+	 *  (instrumented 2026-11-20: server alive, turn gone at ~6s). No-op on
+	 *  desktop — the bridge only exists in the Capacitor WebView. */
+	const turnBusy = turnInFlight || status === "submitted" || status === "streaming";
+	useEffect(() => {
+		const bridge = (window as unknown as { LhChrome?: { setTurnActive?: (active: boolean) => void } }).LhChrome;
+		try {
+			bridge?.setTurnActive?.(turnBusy);
+		} catch {
+			// The bridge can throw if the activity is mid-teardown; the
+			// service's next toggle self-corrects.
+		}
+		return () => bridge?.setTurnActive?.(false);
+	}, [turnBusy]);
 
 	// ── Central job observability (contracts.ts "THE ASYNC PROTOCOL" §4) ──
 	// ONE fetch of /api/jobs drives every job surface (transcript dispatch

@@ -5,4 +5,7 @@
     <string name="package_name">ai.learnharness.mobile</string>
     <string name="custom_url_scheme">ai.learnharness.mobile</string>
     <string name="startup_failure">LearnHarness could not start. Its log is at Android/data/ai.learnharness.mobile/files/logs/server.log.</string>
+    <string name="turn_keepalive_channel">回答生成中</string>
+    <string name="turn_keepalive_title">LearnHarness 正在生成回答</string>
+    <string name="turn_keepalive_text">切到后台也不会中断本轮回答</string>
 </resources>

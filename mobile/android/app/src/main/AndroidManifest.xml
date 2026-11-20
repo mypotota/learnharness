@@ -27,6 +27,11 @@
 
         </activity>
 
+        <service
+            android:name=".TurnKeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -46,4 +51,10 @@
          WebView's onPermissionRequest to the Android runtime prompt. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- The turn keep-alive (TurnKeepAliveService): holds the app out of the
+         cached state for the span of a running turn, so the embedded
+         server's upstream LLM socket survives a background stretch. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 </manifest>

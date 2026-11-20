@@ -105,7 +105,11 @@ export function StatsBar({
 			// (so its transparent gradient area never blocks scrolling) — this row
 			// must re-enable events or every control on it is dead (the model-
 			// control wave caught this live: buttons rendered, clicks never landed).
-			className="pointer-events-auto relative flex items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground max-md:gap-2 max-md:px-2"
+			// Narrow phones (the owner's 350px CSS width): the mode switch +
+			// dictation + model + thinking cannot share one line — the pills
+			// collapsed to "Mini…"/"m…". Below ~380px the model control takes
+			// its own row (right-aligned) instead of truncating itself away.
+			className="pointer-events-auto relative flex flex-wrap items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground max-md:gap-2 max-md:px-2 max-[380px]:gap-y-1.5"
 		>
 			{/* The summary button + its popover: the popover anchors to this
 			    wrapper, CENTERED over the button itself (owner, stats round 2)
@@ -221,7 +225,9 @@ export function StatsBar({
 			{/* The model + thinking control — one controller for the conversation
 			    agents (prober/teacher); the record's `turns` above still folds
 			    the ACTUAL models billed, regardless of what the picker says. */}
-			<ModelControl chatId={chatId} onModelChange={modelChanged} />
+			<div className="flex items-center max-[380px]:w-full max-[380px]:justify-end">
+				<ModelControl chatId={chatId} onModelChange={modelChanged} />
+			</div>
 		</div>
 	);
 }
