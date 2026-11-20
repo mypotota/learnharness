@@ -9,6 +9,7 @@
 export const sidebar = {
 	openSidebar: "Open sidebar",
 	closeSidebar: "Close sidebar",
+	collapseSidebar: "Collapse sidebar",
 	home: "Home",
 	sessions: "Sessions",
 	settings: "Settings",

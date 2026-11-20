@@ -1,12 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { MenuShell } from "@/components/menu-shell";
 import { DeleteSessionDialog } from "@/components/delete-session-dialog";
 import type { ChatDeleteMode, ThemeMode } from "@/src/core";
-import { DumbbellIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, SearchIcon, SettingsIcon } from "lucide-react";
+import { DumbbellIcon, MessagesSquareIcon, PanelLeftCloseIcon, PanelLeftOpenIcon, PlusIcon, SearchIcon, SettingsIcon } from "lucide-react";
 import { ActivitySection } from "@/components/activity-dock";
 import { CoverageMenuBlock } from "@/components/extraction-coverage";
 import { LhMark } from "@/components/lh-mark";
@@ -28,7 +28,7 @@ import { HostContentRootContext, HostRouteLifetimeProvider } from "@/components/
 import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
 import { InteractionLayersProvider, useInteractionLayers, useOptionalInteractionLayers } from "@/components/interaction-layers";
 import { englishT, useT } from "@/components/i18n/i18n-provider";
-import { isCompactViewport, useCompact } from "@/components/use-compact";
+import { isCompactViewport, isSplitShellViewport, useCompact, useSplitShell } from "@/components/use-compact";
 import { registerNativeBack } from "@/components/native-back";
 
 /**
@@ -64,6 +64,12 @@ const SIDEBAR_AUTOCLOSE = 928;
 
 // Module scope, guarded for SSR (the server has no navigator).
 const IS_ELECTRON = typeof navigator !== "undefined" && navigator.userAgent.includes("Electron");
+
+/** useLayoutEffect on the client, useEffect on the server (no SSR warning).
+ *  Restoring the stored sidebar state must land in the first painted frame:
+ *  a passive effect paints one frame with the sidebar collapsed and the
+ *  content full-width first — the flash the owner reported (2026-11-20). */
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 declare global {
 	interface Window {
@@ -104,11 +110,22 @@ declare global {
 	}
 }
 
-const SidebarContext = createContext<{ open: boolean; toggle: () => void; close: () => void; compact: boolean }>({
+const SidebarContext = createContext<{
+	open: boolean;
+	toggle: () => void;
+	close: () => void;
+	compact: boolean;
+	/** Phone drawer (compact, no room for an inline rail). */
+	drawer: boolean;
+	/** Persistent sidebar territory: the unfolded foldable, tablets. */
+	split: boolean;
+}>({
 	open: false,
 	toggle: () => {},
 	close: () => {},
 	compact: false,
+	drawer: false,
+	split: false,
 });
 
 export function useSidebar() {
@@ -128,10 +145,17 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	const [open, setOpen] = useState(false);
 	const [narrow, setNarrow] = useState(false);
 	const [mounted, setMounted] = useState(false);
+	/** Width transitions turn on one frame AFTER the restored state lands, so
+	 *  the first paint shows the sidebar at its final width instead of
+	 *  animating in from w-0 (the load flash). */
+	const [animate, setAnimate] = useState(false);
 	const compact = useCompact();
-	const prevCompact = useRef<boolean | null>(null);
+	const split = useSplitShell();
+	/** No room for anything inline: the phone drawer. */
+	const drawer = compact && !split;
+	const prevMode = useRef<"drawer" | "split" | "desktop" | null>(null);
 
-	useEffect(() => {
+	useIsoLayoutEffect(() => {
 		// Electron shell detection (merged chrome, 2026-09-17): keys the
 		// .lh-electron CSS (app/globals.css) that turns the header bands
 		// into the window's drag surface. Post-mount only — server HTML
@@ -153,30 +177,40 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 		void window.lh?.getZoom?.().then(setZoomVar);
 
 		const stored = localStorage.getItem(STORAGE_KEY);
-		// Desktop default: open (first run introduces the sidebar). On a phone
-		// the sidebar is a drawer: always start closed, regardless of a stored
-		// desktop-era preference.
-		setOpen(isCompactViewport() ? false : stored === null ? true : stored === "1");
+		// Desktop / unfolded-foldable default: open (the sidebar introduces
+		// itself). On a phone drawer: always start closed, regardless of a
+		// stored desktop-era preference.
+		setOpen(isCompactViewport() && !isSplitShellViewport() ? false : stored === null ? true : stored === "1");
 		setMounted(true);
 		return () => off?.();
 	}, []);
 
-	// The viewport can cross the breakpoint (rotation, window resize): close
-	// the drawer when entering compact, restore the stored state when leaving.
+	// Width transitions arrive one frame after the restored state painted, so
+	// the sidebar never slides in from zero on load (it is simply there).
 	useEffect(() => {
 		if (!mounted) return;
-		if (prevCompact.current === null) {
-			prevCompact.current = compact;
+		const id = requestAnimationFrame(() => setAnimate(true));
+		return () => cancelAnimationFrame(id);
+	}, [mounted]);
+
+	// The viewport can cross the breakpoints (fold/unfold, rotation, window
+	// resize): entering the drawer closes it; entering either persistent mode
+	// restores the stored full/rail preference.
+	const mode = drawer ? "drawer" : split ? "split" : "desktop";
+	useEffect(() => {
+		if (!mounted) return;
+		if (prevMode.current === null) {
+			prevMode.current = mode;
 			return;
 		}
-		if (prevCompact.current === compact) return;
-		prevCompact.current = compact;
-		if (compact) {
+		if (prevMode.current === mode) return;
+		prevMode.current = mode;
+		if (mode === "drawer") {
 			setOpen(false);
 		} else {
 			setOpen((localStorage.getItem(STORAGE_KEY) ?? "1") === "1");
 		}
-	}, [compact, mounted]);
+	}, [mode, mounted]);
 
 	// Narrow-window auto-close/auto-restore (see SIDEBAR_AUTOCLOSE note):
 	// fires only on actual resizes — a boolean compare, no layout work.
@@ -193,8 +227,17 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	const toggle = useCallback(() => {
 		// The phone drawer is ephemeral: opening/closing never rewrites the
 		// desktop sidebar preference.
-		if (compact) {
+		if (drawer) {
 			setOpen((v) => !v);
+			return;
+		}
+		// Split mode: full sidebar ⇄ icon rail. This IS the user's layout
+		// preference, so it persists like the desktop open/closed choice.
+		if (split) {
+			setOpen((v) => {
+				localStorage.setItem(STORAGE_KEY, v ? "0" : "1");
+				return !v;
+			});
 			return;
 		}
 		// Opening while narrow (auto-closed, or the user's own closed-at-
@@ -212,12 +255,12 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 			localStorage.setItem(STORAGE_KEY, v ? "0" : "1");
 			return !v;
 		});
-	}, [compact, narrow, open]);
+	}, [drawer, split, narrow, open]);
 
 	const close = useCallback(() => {
-		if (!compact) localStorage.setItem(STORAGE_KEY, "0");
+		if (!drawer) localStorage.setItem(STORAGE_KEY, "0");
 		setOpen(false);
-	}, [compact]);
+	}, [drawer]);
 
 	// ⌘B: the global shortcut dispatches kbdEventForAction("toggle-sidebar")
 	// and the context answers on exactly that name — the shared spelling
@@ -233,9 +276,9 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	}, [toggle]);
 
 	return (
-		<SidebarContext.Provider value={{ open: open && !narrow, toggle, close, compact }}>
-			{/* transitions gated on mount: no slide-in flash on page load */}
-			<div className={cn("lh-safe-inset flex h-dvh overflow-x-clip", mounted && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
+		<SidebarContext.Provider value={{ open: open && !narrow, toggle, close, compact, drawer, split }}>
+			{/* transitions gated on `animate`: no slide-in flash on page load */}
+			<div className={cn("lh-safe-inset flex h-dvh overflow-x-clip", animate && "[&_.sidebar-motion]:transition-[width,margin,opacity]")}>{children}</div>
 		</SidebarContext.Provider>
 	);
 }
@@ -254,7 +297,11 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
  *  no popping in either direction. */
 export function SidebarToggle() {
 	const t = useT();
-	const { open, toggle } = useSidebar();
+	const { open, toggle, split } = useSidebar();
+	// Split shell: the sidebar (rail or full) is always on screen — the rail
+	// carries its own expand affordance, so the header keeps a zero-width
+	// slot and no duplicate hamburger.
+	if (split) return <span aria-hidden className="-mr-3 h-9 w-0 shrink-0" />;
 	return (
 		<span
 			className={cn(
@@ -449,10 +496,72 @@ export function RenameRow({ chat, onCommit, onCancel }: { chat: ChatListItem; on
 export type SessionKindFilter = "teach" | "all" | "practice";
 const KIND_FILTER_KEY = "lh:session-kind-filter";
 
+/** The 56px rail a collapsed persistent sidebar shows (unfolded foldable,
+ *  tablet): the mark, the two doors, sessions, settings and the expand
+ *  affordance. The session list needs the full width, so it lives one tap
+ *  away behind the expand button. */
+function SidebarRail({ onExpand, onNewSession, onPractice, onSettings }: {
+	onExpand: (focusSearch: boolean) => void;
+	onNewSession: () => void;
+	onPractice: () => void;
+	onSettings: () => void;
+}) {
+	const t = useT();
+	return (
+		<>
+			<div className="flex h-14 w-full shrink-0 items-center justify-center">
+				<Hint label={t("sidebar.home")} action="jump-graph" side="right">
+					<Link
+						href="/"
+						aria-label={t("sidebar.home")}
+						className="lh-no-drag flex size-9 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
+					>
+						<LhMark className="size-6" />
+					</Link>
+				</Hint>
+			</div>
+			<div className="flex w-full shrink-0 flex-col items-center gap-1 pt-1">
+				{/* Expand lives at the TOP, mirroring the full bar's collapse button
+				    in the header — collapsing never moves the affordance to the
+				    other end of the rail (owner, 2026-11-20). */}
+				<Hint label={t("sidebar.openSidebar")} action="toggle-sidebar" side="right">
+					<Button variant="ghost" size="icon" aria-label={t("sidebar.openSidebar")} data-testid="rail-expand" onClick={() => onExpand(false)} className="lh-no-drag">
+						<PanelLeftOpenIcon className="size-4" />
+					</Button>
+				</Hint>
+				<div aria-hidden className="my-0.5 h-px w-8 bg-border/60" />
+				<Hint label={t("sidebar.teaching")} side="right">
+					<Button variant="ghost" size="icon" aria-label={t("sidebar.teaching")} data-testid="rail-new-session" onClick={onNewSession} className="lh-no-drag">
+						<PlusIcon className="size-4" />
+					</Button>
+				</Hint>
+				<Hint label={t("sidebar.practice")} side="right">
+					<Button variant="ghost" size="icon" aria-label={t("sidebar.practice")} data-testid="rail-practice" onClick={onPractice} className="lh-no-drag">
+						<DumbbellIcon className="size-4" />
+					</Button>
+				</Hint>
+				<Hint label={t("sidebar.sessions")} action="sessions-search" side="right">
+					<Button variant="ghost" size="icon" aria-label={t("sidebar.sessions")} data-testid="rail-sessions" onClick={() => onExpand(true)} className="lh-no-drag">
+						<MessagesSquareIcon className="size-4" />
+					</Button>
+				</Hint>
+			</div>
+			<div className="flex-1" />
+			<div className="flex w-full shrink-0 flex-col items-center gap-1 pb-1">
+				<Hint label={t("sidebar.settings")} action="open-settings" side="right">
+					<Button variant="ghost" size="icon" aria-label={t("sidebar.settings")} data-testid="rail-settings" onClick={onSettings} className="lh-no-drag">
+						<SettingsIcon className="size-4" />
+					</Button>
+				</Hint>
+			</div>
+		</>
+	);
+}
+
 function SessionsSidebar() {
 	const t = useT();
 	const interactions = useInteractionLayers();
-	const { open, toggle, close, compact } = useSidebar();
+	const { open, toggle, close, drawer, split } = useSidebar();
 	const [chats, setChats] = useState<ChatListItem[] | null>(null);
 	const [query, setQuery] = useState("");
 	const [kindFilter, setKindFilter] = useState<SessionKindFilter>("all");
@@ -701,21 +810,21 @@ function SessionsSidebar() {
 
 	// A drawer is a transient layer: navigating from it dismisses it.
 	useEffect(() => {
-		if (compact) close();
-	}, [pathname, compact, close]);
+		if (drawer) close();
+	}, [pathname, drawer, close]);
 
 	// Android back closes the drawer before it leaves the page.
 	useEffect(() => {
-		if (!compact || !open) return;
+		if (!drawer || !open) return;
 		return registerNativeBack(() => {
 			close();
 			return true;
 		});
-	}, [compact, open, close]);
+	}, [drawer, open, close]);
 
 	return (
 		<>
-			{compact && open && (
+			{drawer && open && (
 				<button
 					type="button"
 					aria-label={t("sidebar.closeSidebar")}
@@ -726,18 +835,23 @@ function SessionsSidebar() {
 			<aside
 				className={cn(
 					"sidebar-motion shrink-0 overflow-hidden duration-200",
-					compact
+					drawer
 						? cn(
 								"fixed inset-y-0 left-0 z-50 w-72 shadow-2xl transition-transform",
 								open ? "translate-x-0" : "-translate-x-full",
 							)
-						: open
-							? "w-72"
-							: "w-0",
+						: !split
+							? open
+								? "w-72"
+								: "w-0"
+							: open
+								? "w-60"
+								: "w-14",
 				)}
-				aria-hidden={!open}
+				aria-hidden={!open && (drawer || !split)}
 			>
-				<div className="lh-safe-inset flex h-full w-72 flex-col border-r bg-background">
+				{open || drawer || !split ? (
+					<div className={cn("lh-safe-inset flex h-full flex-col border-r bg-background", split && !drawer ? "w-60" : "w-72")}>
 				{/* LH wordmark — the owner's header; close toggle sits at the edge.
 				    Merged chrome (2026-09-17): in Electron this band is the
 				    window's drag surface and starts after the traffic lights
@@ -763,17 +877,17 @@ function SessionsSidebar() {
 							aria-label={t("sidebar.home")}
 							// The drawer closes on NAVIGATION, but tapping Home while
 							// already on "/" changes no path — dismiss it explicitly.
-							onClick={() => compact && close()}
+							onClick={() => drawer && close()}
 							className="lh-no-drag flex size-9 shrink-0 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50"
 						>
 							<LhMark className="size-6" />
 						</Link>
 					</Hint>
-					<Hint label={t("sidebar.closeSidebar")} action="toggle-sidebar">
+					<Hint label={split ? t("sidebar.collapseSidebar") : t("sidebar.closeSidebar")} action="toggle-sidebar">
 						<Button
 							variant="ghost"
 							size="icon"
-							aria-label={t("sidebar.closeSidebar")}
+							aria-label={split ? t("sidebar.collapseSidebar") : t("sidebar.closeSidebar")}
 							onClick={toggle}
 							className="lh-no-drag"
 						>
@@ -954,6 +1068,19 @@ function SessionsSidebar() {
 						</Hint>
 					</div>
 				</div>
+				) : (
+					<div className="lh-safe-inset flex h-full w-14 flex-col items-center border-r bg-background">
+						<SidebarRail
+							onExpand={(focusSearch) => {
+								if (!open) toggle();
+								if (focusSearch) requestAnimationFrame(() => searchRef.current?.focus());
+							}}
+							onNewSession={() => void newSession()}
+							onPractice={() => router.push("/chat/new?mode=practice")}
+							onSettings={() => openSettings()}
+						/>
+					</div>
+				)}
 
 				{/* The context menu (wave 6 + the extraction-UX redesign): the
 				    coverage block above, then exactly two management actions

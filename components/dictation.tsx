@@ -829,10 +829,16 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 					disabled={disabled || blocked}
 					aria-label={error ? t("composer.dictationFailed", { error }) : t("composer.startDictation")}
 					data-testid="dictation-toggle"
-					className="flex h-7 w-full items-center justify-center gap-1.5 rounded-md border border-border/50 bg-card/50 text-xs text-muted-foreground/70 shadow-lg backdrop-blur transition-colors hover:border-border hover:text-muted-foreground max-md:min-h-9 max-md:max-w-28 max-sm:h-8 max-sm:w-8 max-sm:min-h-8 max-sm:max-w-none max-sm:flex-none max-sm:px-0 max-sm:shadow-none"
+					// Same pill language as the model control beside it (border,
+					// blur, rounded-full, compact heights) — the old wide rounded-md
+					// box with a heavy shadow read as a different control family
+					// (owner, 2026-11-20).
+					className={`flex min-w-0 shrink-0 items-center justify-center gap-1.5 rounded-full border bg-card/85 px-2.5 py-1 font-ui text-xs shadow-lg backdrop-blur transition-colors hover:border-border hover:bg-muted max-md:min-h-8 max-md:px-2 max-md:py-0.5 max-md:text-[11px] max-sm:size-7 max-sm:min-h-7 max-sm:gap-0 max-sm:px-0 max-sm:shadow-none ${
+						error ? "border-destructive/40 text-destructive" : "text-muted-foreground hover:text-foreground"
+					}`}
 				>
 					<MicIcon className="size-3.5" />
-					<span className={error ? "max-w-full truncate" : "max-w-full truncate max-sm:hidden"}>{error ?? t("composer.dictate")}</span>
+					<span className={error ? "max-w-40 truncate" : "max-w-40 truncate max-sm:hidden"}>{error ?? t("composer.dictate")}</span>
 				</button>
 			</Hint>
 		);
@@ -847,7 +853,7 @@ export function DictationBar({ dictation, disabled = false }: { dictation: Dicta
 					disabled={phase === "stopping"}
 					aria-label={t("composer.stopDictation")}
 					data-testid="dictation-toggle"
-					className="flex h-7 shrink-0 items-center gap-1.5 rounded-md bg-destructive/10 px-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
+					className="flex h-7 shrink-0 items-center gap-1.5 rounded-full bg-destructive/10 px-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
 				>
 					{phase === "stopping" ? <Loader2Icon className="size-3.5 animate-spin" /> : <MicIcon className="size-3.5" />}
 					{t("composer.stop")}

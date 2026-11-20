@@ -135,7 +135,7 @@ export function StatsBar({
 			// all stay in the row — flush to both edges (owner: a centered
 			// cluster "didn't look good") and never scrolling sideways — the
 			// pills compress first.
-			className="pointer-events-auto relative flex flex-wrap items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground max-md:gap-2 max-md:px-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:pt-1 max-sm:text-[11px]"
+			className="pointer-events-auto relative flex flex-wrap items-center justify-between gap-3 px-3 pt-2 text-xs text-muted-foreground max-md:justify-start max-md:gap-2 max-md:px-2 max-sm:flex-nowrap max-sm:gap-1 max-sm:pt-1 max-sm:text-[11px]"
 		>
 			{/* The summary button + its popover: the popover anchors to this
 			    wrapper, CENTERED over the button itself (owner, stats round 2)
@@ -250,8 +250,11 @@ export function StatsBar({
 			)}
 			{/* The model + thinking control — one controller for the conversation
 			    agents (prober/teacher); the record's `turns` above still folds
-			    the ACTUAL models billed, regardless of what the picker says. */}
-			<div className="flex min-w-0 items-center">
+			    the ACTUAL models billed, regardless of what the picker says.
+			    Compact keeps it pinned to the right edge: the left cluster
+			    (mode switch, session data, dictation) packs together instead
+			    of being spread across the whole row. */}
+			<div className="flex min-w-0 items-center max-md:ml-auto">
 				<ModelControl chatId={chatId} onModelChange={modelChanged} />
 			</div>
 		</div>

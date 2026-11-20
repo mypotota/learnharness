@@ -8,6 +8,7 @@ import type { sidebar as EN_SIDEBAR } from "../en/sidebar.ts";
 export const sidebar = {
 	openSidebar: "打开侧边栏",
 	closeSidebar: "关闭侧边栏",
+	collapseSidebar: "收起侧边栏",
 	home: "首页",
 	sessions: "会话",
 	settings: "设置",
