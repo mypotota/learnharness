@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import { useCoarsePointer } from "@/components/use-compact"
 import { bindingForAction, formatBinding, type KeyAction } from "@/src/core"
 
 /**
@@ -44,11 +45,15 @@ export function hintText(label: string, action?: KeyAction, binding?: string): s
 }
 
 export function Hint({ label, action, binding, side = "top", children }: HintProps) {
+	// Touch devices: a tap focuses the trigger, so the tooltip opens on its
+	// own and a keyboard shortcut suffix is pure noise there (owner,
+	// 2026-11-20: "设置 (⌘,)" next to the settings entry on the phone).
+	const coarse = useCoarsePointer();
 	return (
 		<TooltipProvider>
 			<Tooltip>
 				<TooltipTrigger asChild>{children}</TooltipTrigger>
-				<TooltipContent side={side}>{hintText(label, action, binding)}</TooltipContent>
+				<TooltipContent side={side}>{coarse ? label : hintText(label, action, binding)}</TooltipContent>
 			</Tooltip>
 		</TooltipProvider>
 	)

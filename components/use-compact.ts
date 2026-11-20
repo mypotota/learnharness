@@ -15,6 +15,11 @@ const QUERY = "(max-width: 767px), (pointer: coarse) and (max-width: 1024px)";
  *  would eat most of the width. */
 const SPLIT_QUERY = "(pointer: coarse) and (min-width: 640px) and (min-height: 560px)";
 
+/** Touch-first device (phone/tablet). Keyboard-shortcut hints are noise
+ *  there: a tap focuses the trigger, the tooltip opens and the "(⌘,)" suffix
+ *  makes no sense without a keyboard (owner, 2026-11-20). */
+const COARSE_QUERY = "(pointer: coarse)";
+
 function query(search: string, cache: { list: MediaQueryList | null }): MediaQueryList | null {
 	if (typeof window === "undefined") return null;
 	cache.list ??= window.matchMedia(search);
@@ -23,6 +28,7 @@ function query(search: string, cache: { list: MediaQueryList | null }): MediaQue
 
 const compactCache = { list: null as MediaQueryList | null };
 const splitCache = { list: null as MediaQueryList | null };
+const coarseCache = { list: null as MediaQueryList | null };
 
 function media(): MediaQueryList | null {
 	return query(QUERY, compactCache);
@@ -50,6 +56,15 @@ export function useCompact(): boolean {
 	return useSyncExternalStore(
 		(onChange) => subscribe(media(), onChange),
 		() => media()?.matches ?? false,
+		() => false,
+	);
+}
+
+/** True when the pointer is coarse (touch-first). */
+export function useCoarsePointer(): boolean {
+	return useSyncExternalStore(
+		(onChange) => subscribe(query(COARSE_QUERY, coarseCache), onChange),
+		() => query(COARSE_QUERY, coarseCache)?.matches ?? false,
 		() => false,
 	);
 }
