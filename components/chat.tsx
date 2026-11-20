@@ -1371,6 +1371,36 @@ export function Chat({
 		};
 	}, [status, readRecord, syncFromServer]);
 
+	/* BACKGROUND INTERRUPTIONS (owner bug, 2026-11-20): Android tears the
+	 * WebView's stream down while the app is hidden, so a mid-answer
+	 * background lands back on a "terminated" banner even though the turn
+	 * is DECOUPLED from its view — the server keeps generating and the
+	 * record is truth. A hidden stretch must therefore not be terminal: on
+	 * the next visible frame reattach through the ordinary wire. A live turn
+	 * replays; a settled one answers turn-settled (carrying the retained
+	 * failure notice when the turn genuinely died), and that settle path
+	 * clears the banner and adopts the record. One pass per hide/show. */
+	const hiddenSinceRef = useRef(false);
+	useEffect(() => {
+		const onVisibility = () => {
+			if (document.visibilityState === "hidden") {
+				hiddenSinceRef.current = true;
+				return;
+			}
+			if (!hiddenSinceRef.current) return;
+			hiddenSinceRef.current = false;
+			// Only a dead attached view needs healing: a dropped-stream
+			// banner or the fallback busy flag with no stream behind it.
+			if (status !== "error" && !turnInFlightRef.current) return;
+			if (status === "submitted" || status === "streaming") return;
+			clearError();
+			setTurnInFlight(true);
+			void resumeStream();
+		};
+		document.addEventListener("visibilitychange", onVisibility);
+		return () => document.removeEventListener("visibilitychange", onVisibility);
+	}, [status, clearError, resumeStream]);
+
 	// ── Central job observability (contracts.ts "THE ASYNC PROTOCOL" §4) ──
 	// ONE fetch of /api/jobs drives every job surface (transcript dispatch
 	// cards, the sub-agents panel) and re-syncs the transcript exactly once
