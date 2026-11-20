@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useActivity } from "@/components/activity-dock";
 import { usePopoverDismiss } from "@/components/popover-dismiss";
 import { INTERACTION_LAYER_Z_BASE } from "@/components/host-dialog";
@@ -251,6 +251,28 @@ export function CoverageRing({ chatId, refreshKey = 0 }: { chatId: string; refre
 	const [nonce, setNonce] = useState(0);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
+	// Right-align under the ring, then pull back inside the viewport. A phone
+	// header puts the ring mid-row, so the naive right-0 anchor clipped ~25px
+	// off the left edge (owner: "顶部的用量统计超出屏幕范围").
+	const [panelLeft, setPanelLeft] = useState<number | null>(null);
+	useLayoutEffect(() => {
+		if (!open) {
+			setPanelLeft(null);
+			return;
+		}
+		const place = () => {
+			const el = rootRef.current;
+			if (!el) return;
+			const edge = 8;
+			const rect = el.getBoundingClientRect();
+			const width = Math.min(256, window.innerWidth - edge * 2); // w-64
+			const left = Math.min(Math.max(edge, rect.right - width), Math.max(edge, window.innerWidth - width - edge));
+			setPanelLeft(Math.round(left - rect.left));
+		};
+		place();
+		window.addEventListener("resize", place);
+		return () => window.removeEventListener("resize", place);
+	}, [open]);
 	const popupLayer = usePopoverDismiss(rootRef, open && graph !== null && graph.enabled && coverage !== null, () => setOpen(false), { layerRootRef: panelRef });
 
 	// The activity/refresh chain (the dispatch's seam): runs can fire from
@@ -325,8 +347,12 @@ export function CoverageRing({ chatId, refreshKey = 0 }: { chatId: string; refre
 				<div
 					ref={panelRef}
 					data-testid="coverage-ring-popover"
-					style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }}
-					className="absolute top-full right-0 mt-1.5 w-64 rounded-xl border bg-card p-3 text-xs shadow-xl"
+					style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order, left: panelLeft ?? undefined, right: panelLeft === null ? undefined : "auto" }}
+					// Phones: the ring sits mid-header (a 351px screen puts it at
+					// x≈211), so a w-64 panel right-aligned to it lands at -25 and
+					// clips off the left edge. panelLeft clamps it into the 8px
+					// margin while keeping the panel anchored UNDER the ring.
+					className="absolute top-full right-0 z-10 mt-1.5 w-64 max-w-[calc(100vw-1rem)] rounded-xl border bg-card p-3 text-xs shadow-xl"
 				>
 					<CoverageRingDetail coverage={coverage} chunkTokens={graph.chunkTokens} />
 				</div>
