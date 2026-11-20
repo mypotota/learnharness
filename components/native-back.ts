@@ -33,6 +33,17 @@ export function registerNativeBack(handler: Handler): () => void {
 	};
 }
 
+/* The interaction-layer rung: menus, popovers, dialogs, sheets and plugin
+ * surfaces all register through useInteractionLayer, so one dismissTop covers
+ * them. Registered right after the history rung (and therefore below any
+ * surface-specific handler registered by a component) — a drawer or a settings
+ * detail step still gets the press first. */
+let closeTopLayer: (() => boolean) | null = null;
+
+export function setNativeBackLayers(handler: (() => boolean) | null) {
+	closeTopLayer = handler;
+}
+
 /* The last rung: in-app history. Android's WebView.canGoBack() does not see
  * client-side entries (Next's router pushes state without a document load),
  * so the native shell alone would exit from a session. The Navigation API
@@ -48,6 +59,8 @@ if (typeof window !== "undefined") {
 		void navigation.back();
 		return true;
 	});
+	// Above history, below every later (surface-specific) registration.
+	registerNativeBack(() => closeTopLayer?.() ?? false);
 }
 
 declare global {

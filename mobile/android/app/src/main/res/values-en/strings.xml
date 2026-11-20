@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Only the exit dialog is localised natively: its language is pushed by
+         the web layer (LhChrome.setLocale) and resolved through a
+         locale-overridden Context, not the system locale. The Chinese text is
+         the default in values/strings.xml. -->
+    <string name="exit_title">Quit LearnHarness?</string>
+    <string name="exit_cancel">Cancel</string>
+    <string name="exit_confirm">Quit</string>
+</resources>

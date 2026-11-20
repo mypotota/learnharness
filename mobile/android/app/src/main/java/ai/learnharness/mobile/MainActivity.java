@@ -1,20 +1,27 @@
 package ai.learnharness.mobile;
 
+import android.app.Dialog;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -32,8 +39,10 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -69,6 +78,16 @@ public class MainActivity extends BridgeActivity {
     private static final int MAX_REVEAL_RETRIES = 5;
     private static final long REVEAL_RETRY_MS = 500;
     private final Handler ui = new Handler(Looper.getMainLooper());
+    /** The app's own theme, pushed by the web layer (LhChrome.setTheme): the
+     *  exit card must match the app, not the system. */
+    private volatile boolean appDark = true;
+    private volatile int appBackground = Color.parseColor("#141414");
+    /** App UI language, pushed by the i18n provider (LhChrome.setLocale).
+     *  Until that push arrives (the splash stage), the system language is the
+     *  closest guess — otherwise the exit card could greet a Chinese user in
+     *  English. */
+    private volatile String appLocale = Locale.getDefault().toLanguageTag();
+    private Dialog exitDialog;
     /** System-bar / cutout insets in CSS pixels: top, right, bottom, left. */
     private int[] safeArea = new int[]{0, 0, 0, 0};
     /** AI-state notification ids (see notifyAIState) — fixed so each state
@@ -100,6 +119,12 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SecureStorePlugin.class);
         super.onCreate(savedInstanceState);
         setTheme(R.style.AppTheme_NoActionBar);
+        // Before the web layer pushes the real theme, the splash palette is
+        // what is on screen — the exit card should match it, not a guess.
+        boolean night = (getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        appDark = night;
+        appBackground = ContextCompat.getColor(this, R.color.splash_background);
 
         installSplash();
         polishWebViewSettings();
@@ -141,6 +166,10 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        if (exitDialog != null) {
+            exitDialog.dismiss();
+            exitDialog = null;
+        }
         ui.removeCallbacksAndMessages(null);
         stopTurnWatcher();
         RenderService.stop();
@@ -328,6 +357,13 @@ public class MainActivity extends BridgeActivity {
      *  history/exiting decision happens in its callback. */
     private void handleBack() {
         if (isFinishing() || isDestroyed()) return;
+        // The exit card owns the press while it is up: dismissing it here too
+        // means a predictive-back edge case can never fall through to the
+        // history/exit rungs below.
+        if (exitDialog != null && exitDialog.isShowing()) {
+            exitDialog.dismiss();
+            return;
+        }
         final WebView webView = getBridge() != null ? getBridge().getWebView() : null;
         if (webView == null) {
             finish();
@@ -340,9 +376,69 @@ public class MainActivity extends BridgeActivity {
                     if (webView.canGoBack()) {
                         webView.goBack();
                     } else {
-                        finish();
+                        confirmExit();
                     }
                 });
+    }
+
+    /** Leaving the app is a two-step decision (owner round 2026-11-20): the
+     *  card is drawn by us, not the platform, and takes its colours, radius and
+     *  type from the app's current theme so it does not look foreign. */
+    private void confirmExit() {
+        if (isFinishing() || isDestroyed()) return;
+        if (exitDialog != null && exitDialog.isShowing()) return;
+        Context localized = localizedContext();
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(R.layout.dialog_exit);
+        dialog.setCanceledOnTouchOutside(true);
+
+        int foreground = appDark ? Color.parseColor("#e6e6e6") : Color.parseColor("#4c4f69");
+        int muted = appDark ? Color.parseColor("#8d8d8d") : Color.parseColor("#6c6f85");
+        int border = appDark ? Color.parseColor("#2e2e2e") : Color.parseColor("#d8dae3");
+        GradientDrawable card = new GradientDrawable();
+        card.setColor(appBackground);
+        card.setCornerRadius(dp(20));
+        card.setStroke(Math.max(1, dp(1)), border);
+        dialog.findViewById(R.id.exit_card).setBackground(card);
+
+        TextView title = dialog.findViewById(R.id.exit_title);
+        TextView cancel = dialog.findViewById(R.id.exit_cancel);
+        TextView confirm = dialog.findViewById(R.id.exit_confirm);
+        title.setText(localized.getString(R.string.exit_title));
+        cancel.setText(localized.getString(R.string.exit_cancel));
+        confirm.setText(localized.getString(R.string.exit_confirm));
+        title.setTextColor(foreground);
+        cancel.setTextColor(muted);
+        confirm.setTextColor(foreground);
+        cancel.setOnClickListener(view -> dialog.dismiss());
+        confirm.setOnClickListener(view -> {
+            dialog.dismiss();
+            finish();
+        });
+
+        exitDialog = dialog;
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.setDimAmount(0.5f);
+            int screenWidth = getResources().getDisplayMetrics().widthPixels;
+            window.setLayout(Math.min(screenWidth - dp(56), dp(340)),
+                    WindowManager.LayoutParams.WRAP_CONTENT);
+        }
+    }
+
+    private Context localizedContext() {
+        Configuration configuration = new Configuration(getResources().getConfiguration());
+        // "zh-CN"/"zh_CN" all resolve to the same resource set.
+        configuration.setLocale(new Locale(appLocale.split("[-_]")[0]));
+        return createConfigurationContext(configuration);
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     /** The in-app launch surface (layout/splash_overlay.xml): the app mark, the
@@ -440,21 +536,35 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public void setTheme(String mode, String background) {
+            boolean dark = "dark".equals(mode);
+            int parsed = appBackground;
+            if (background != null) {
+                try {
+                    parsed = Color.parseColor(background);
+                } catch (IllegalArgumentException ignored) {
+                    // Keep the previous colour for an unexpected value.
+                }
+            }
+            final int backgroundForWebView = parsed;
+            appDark = dark;
+            appBackground = parsed;
             runOnUiThread(() -> {
                 WebView webView = getBridge() != null ? getBridge().getWebView() : null;
                 if (webView != null && background != null) {
-                    try {
-                        webView.setBackgroundColor(Color.parseColor(background));
-                    } catch (IllegalArgumentException ignored) {
-                        // Keep the previous colour for an unexpected value.
-                    }
+                    webView.setBackgroundColor(backgroundForWebView);
                 }
-                boolean dark = "dark".equals(mode);
                 WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(
                         getWindow(), getWindow().getDecorView());
                 controller.setAppearanceLightStatusBars(!dark);
                 controller.setAppearanceLightNavigationBars(!dark);
             });
+        }
+
+        /** The app's UI language (a user preference, not the system locale):
+         *  the exit card is the only native text that follows it. */
+        @JavascriptInterface
+        public void setLocale(String locale) {
+            if (locale != null && !locale.isEmpty()) appLocale = locale;
         }
     }
 

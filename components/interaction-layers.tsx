@@ -6,6 +6,7 @@ import {
 } from "react";
 
 import { capturePluginQuestionKey, pluginQuestionKeySuppressed } from "./plugin-question-keys";
+import { setNativeBackLayers } from "./native-back";
 
 export type LayerKind = "modal" | "popup" | "view";
 export type CloseReason = "escape" | "backdrop" | "outside" | "return-to" | "action" | "dismiss";
@@ -267,6 +268,18 @@ export function createInteractionLayers() {
 			emit();
 		},
 		requestClose,
+		/** Android back (native-back.ts): close the topmost layer that can close
+		 *  and report whether the press was consumed. A blocked layer (no
+		 *  onClose) must not trap the press — the layer below gets a chance,
+		 *  then the shell falls through to history/exiting. */
+		dismissTop(reason: CloseReason): boolean {
+			for (const layer of [...layers].reverse()) {
+				if (!eligible(layer.id)) continue;
+				const outcome = requestClose(layer.id, reason);
+				if (outcome !== "blocked") return true;
+			}
+			return false;
+		},
 		popTo(id: LayerId): CloseOutcome {
 			const targetIndex = layers.findIndex(layer => layer.id === id);
 			if (targetIndex < 0) return "blocked";
@@ -416,6 +429,14 @@ export function InteractionLayersProvider({ children }: { children: ReactNode })
 			document.removeEventListener("keydown", bubble);
 			document.removeEventListener("focusin", focus, true);
 		};
+	}, [controller]);
+	useLayoutEffect(() => {
+		// Android back closes the topmost menu/popover/dialog/sheet through the
+		// same onClose path as Escape. Wired at provider level so every layer
+		// kind is covered; surfaces with their own steps (drawer, settings
+		// detail) register later and therefore run first.
+		setNativeBackLayers(() => controller.dismissTop("escape"));
+		return () => setNativeBackLayers(null);
 	}, [controller]);
 	return <LayersContext.Provider value={controller}>{children}</LayersContext.Provider>;
 }

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The exit confirmation (MainActivity.confirmExit). Colours, corner radius
+     and type are set from the app's own theme at runtime (the web layer pushes
+     mode + background through LhChrome.setTheme), so the card matches the app
+     rather than the system default dialog. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/exit_card"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingLeft="24dp"
+    android:paddingTop="22dp"
+    android:paddingRight="16dp"
+    android:paddingBottom="10dp">
+
+    <TextView
+        android:id="@+id/exit_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingRight="8dp"
+        android:text="@string/exit_title"
+        android:textSize="16sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/exit_cancel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:paddingLeft="14dp"
+            android:paddingTop="10dp"
+            android:paddingRight="14dp"
+            android:paddingBottom="10dp"
+            android:text="@string/exit_cancel"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/exit_confirm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?android:attr/selectableItemBackground"
+            android:paddingLeft="14dp"
+            android:paddingTop="10dp"
+            android:paddingRight="10dp"
+            android:paddingBottom="10dp"
+            android:text="@string/exit_confirm"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

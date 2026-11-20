@@ -105,9 +105,15 @@ export function I18nProvider({
 	}, [locale]);
 
 	// The desktop menu follows the app's UI language (i18n wave): report
-	// each change so Electron rebuilds its labels.
+	// each change so Electron rebuilds its labels. The Android shell needs the
+	// same signal for its native exit dialog.
 	useEffect(() => {
 		window.lh?.menuLocale?.(locale);
+		(
+			window as Window & {
+				LhChrome?: { setLocale?: (locale: string) => void };
+			}
+		).LhChrome?.setLocale?.(locale);
 	}, [locale]);
 
 	// The OS locale, once the client knows it. Only matters while the user
