@@ -117,7 +117,10 @@ export function mountSheet(container: HTMLElement, ctx: PluginFrontendContext, s
   };
   const down = (event: PointerEvent) => {
     const rightButton = event.pointerType === "mouse" && event.button === 2;
-    if (preparing || failure || !state.draft || pointerId !== undefined || event.pointerType === "touch" ||
+    // Touch draws too (owner, mobile round 2026-11-20): the pad is a canvas,
+    // not a scroller — touch-action: none above already owns the gesture, so
+    // a finger is just a pen at 0.5 pressure. The hand tool still pans it.
+    if (preparing || failure || !state.draft || pointerId !== undefined ||
       (event.pointerType !== "pen" && event.button !== 0 && !rightButton)) return;
     event.preventDefault(); viewport.focus({ preventScroll: true });
     pointerId = event.pointerId; canvas.setPointerCapture(event.pointerId);

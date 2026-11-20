@@ -119,6 +119,7 @@ const ctx = {
   onNotification(fn) { notifications.add(fn); return () => notifications.delete(fn); },
   onAppEvent(fn) { events.add(fn); return () => events.delete(fn); },
   onResync(fn) { resyncs.add(fn); return () => resyncs.delete(fn); },
+  locale() { return "en"; },
   app: { pathname: () => pathname },
   ui: {
     mountButton: handleButton,
@@ -217,7 +218,7 @@ window.fixture = {
   releaseDecodes() { for (const finish of heldDecodes.splice(0)) finish(); },
   async ready() {
     const info = { id: "drawing-pad", enabled: true, status: "active", revision: "fixture", manifest: { apiVersion: 1, id: "drawing-pad", name: "Drawing Pad", version: "0.1.0", minAppVersion: "0.4.1", main: "main.js" } };
-    manager = new PluginFrontendManager({ pathname: () => pathname, navigate() {},
+    manager = new PluginFrontendManager({ pathname: () => pathname, navigate() {}, locale: () => "en",
       fetch: async () => Response.json({ plugins: [info], directory: "/disposable-fixture" }),
       importModule: async () => ({ async activate(actual) {
         off = await activate({ ...ctx, registerAction: actual.registerAction,

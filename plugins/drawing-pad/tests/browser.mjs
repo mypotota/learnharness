@@ -229,17 +229,23 @@ try {
   group("whole-stroke erase, full erasure sends nothing, Undo and local keyboard Undo");
 
   await button("Pen"); const beforeTouch = await ink();
-  await run(() => { const canvas = document.querySelector(".drawing-pad-ink"), rect = canvas.getBoundingClientRect();
-    canvas.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerId: 900, pointerType: "touch", button: 0, buttons: 1, pressure: .8, clientX: rect.x + 100, clientY: rect.y + 100 })); });
-  assert.equal(await ink(), beforeTouch);
-  await page.mouse.click(700, 700, { button: "right" }); assert.equal(await ink(), beforeTouch);
+  // A real finger (CDP touch, not a synthetic PointerEvent): phones have no
+  // pen, so the drawing stroke must come from pointerType "touch" itself.
+  const finger = await page.createCDPSession(), fingerBox = await (await page.$(".drawing-pad-ink")).boundingBox();
+  await finger.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: fingerBox.x + 100, y: fingerBox.y + 100, id: 1 }] });
+  await finger.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: fingerBox.x + 220, y: fingerBox.y + 150, id: 1 }] });
+  await finger.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await finger.detach();
+  const afterTouch = await ink();
+  assert.ok(afterTouch > beforeTouch, "a finger draws like a pen");
+  await page.mouse.click(700, 700, { button: "right" }); assert.equal(await ink(), afterTouch);
   const cdp = await page.createCDPSession(); const box = await (await page.$(".drawing-pad-ink")).boundingBox();
   await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: box.x + 150, y: box.y + 300, pointerType: "pen", force: 0 });
   await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: box.x + 150, y: box.y + 300, button: "left", buttons: 1, pointerType: "pen", force: .8 });
   await cdp.send("Input.dispatchMouseEvent", { type: "mouseMoved", x: box.x + 350, y: box.y + 350, buttons: 1, pointerType: "pen", force: .8 });
   await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: box.x + 350, y: box.y + 350, button: "left", pointerType: "pen", force: 0 });
   assert.ok(await ink() > beforeTouch); await cdp.detach();
-  group("touch and stationary right-click add no ink; browser-generated pressure-pen input draws");
+  group("touch draws ink; stationary right-click adds none; browser-generated pressure-pen input draws");
 
   await button("Clear"); await stroke(); const originalPen = await ink();
   await run(() => document.querySelector(".drawing-pad-ink").addEventListener("pointerdown", event => { window.fixture.lastPenId = event.pointerId; }, { once: true }));
