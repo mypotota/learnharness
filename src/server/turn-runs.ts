@@ -31,9 +31,14 @@
 
 import type { PiTurnHandle } from "./pi/ui-stream.ts";
 
+interface TurnFailure {
+	text: string;
+	at: number;
+}
+
 interface LhTurnRunsGlobal {
 	__lhTurnRuns?: Map<string, PiTurnHandle>;
-	__lhTurnFailures?: Map<string, string>;
+	__lhTurnFailures?: Map<string, TurnFailure>;
 }
 
 function runs(): Map<string, PiTurnHandle> {
@@ -42,18 +47,24 @@ function runs(): Map<string, PiTurnHandle> {
 }
 
 /** One small, transient notice per failed session. Never stores messages.
- * Cleared on the next accepted begin, session deletion, or process exit. */
-function failures(): Map<string, string> {
+ *  Cleared on the next accepted begin, session deletion, or process exit. */
+function failures(): Map<string, TurnFailure> {
 	const g = globalThis as typeof globalThis & LhTurnRunsGlobal;
-	return (g.__lhTurnFailures ??= new Map<string, string>());
+	return (g.__lhTurnFailures ??= new Map<string, TurnFailure>());
 }
 
 export function rememberTurnFailure(chatId: string, errorText: string): void {
-	failures().set(chatId, errorText);
+	failures().set(chatId, { text: errorText, at: Date.now() });
 }
 
 export function turnFailure(chatId: string): string | undefined {
-	return failures().get(chatId);
+	return failures().get(chatId)?.text;
+}
+
+/** When the retained failure happened — the background notice watcher only
+ *  reports states that BEGAN after the learner left the app. */
+export function turnFailureAt(chatId: string): number | undefined {
+	return failures().get(chatId)?.at;
 }
 
 export function clearTurnFailure(chatId: string): void {

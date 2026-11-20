@@ -32,6 +32,7 @@ interface TurnOwner {
 interface LhGlobal {
 	__lhTurnRegistry?: Map<string, number>;
 	__lhTurnOwners?: Map<string, TurnOwner>;
+	__lhTurnSettled?: Map<string, number>;
 }
 
 function registry(): Map<string, number> {
@@ -42,6 +43,15 @@ function registry(): Map<string, number> {
 function owners(): Map<string, TurnOwner> {
 	const g = globalThis as typeof globalThis & LhGlobal;
 	return (g.__lhTurnOwners ??= new Map<string, TurnOwner>());
+}
+
+/** When the chat's newest turn settled (epoch ms). The message timestamps do
+ *  not carry this: a turn's assistant message is written ahead at START and
+ *  mutated while streaming, so "last message at" cannot tell when the reply
+ *  actually landed — the background notice watcher needs the settle moment. */
+function settled(): Map<string, number> {
+	const g = globalThis as typeof globalThis & LhGlobal;
+	return (g.__lhTurnSettled ??= new Map<string, number>());
 }
 
 const inFlight = registry();
@@ -78,7 +88,16 @@ export function beginTurn(chatId: string, preparationOwner?: object): boolean {
 export function endTurn(chatId: string, owner?: object): void {
 	if (owner && owners().get(chatId)?.token !== owner) return;
 	owners().delete(chatId);
-	if (inFlight.delete(chatId)) emit("turn-settled", { chatId });
+	if (inFlight.delete(chatId)) {
+		settled().set(chatId, Date.now());
+		emit("turn-settled", { chatId });
+	}
+}
+
+/** When the chat's newest turn settled, or undefined if none has in this
+ *  process — the notice projection's `since` for question/done. */
+export function turnSettledAt(chatId: string): number | undefined {
+	return settled().get(chatId);
 }
 
 /** Private ownership fence for preparation and its handed-off teacher. */
@@ -109,4 +128,11 @@ export function isTurnRunning(chatId: string): boolean {
 		return false;
 	}
 	return true;
+}
+
+/** When the in-flight turn began (epoch ms), or undefined — the background
+ *  notice watcher uses it to tell "this turn finished while you were away"
+ *  from "you left while it was already running". */
+export function turnStartedAt(chatId: string): number | undefined {
+	return inFlight.get(chatId);
 }

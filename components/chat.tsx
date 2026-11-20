@@ -1428,23 +1428,29 @@ export function Chat({
 		};
 	}, [status, error, clearError, resumeStream]);
 
-	/** The native turn keep-alive (mobile): hold the app out of Android's
-	 *  cached state for the whole busy span. Without it the cached-app
-	 *  network policy cuts the embedded server's upstream LLM socket a few
-	 *  seconds after backgrounding and the turn dies mid-generation
-	 *  (instrumented 2026-11-20: server alive, turn gone at ~6s). No-op on
-	 *  desktop — the bridge only exists in the Capacitor WebView. */
+	/** The native turn context (mobile): the busy span keeps the app out of
+	 *  Android's cached state, so the embedded server's upstream LLM socket
+	 *  survives a background stretch (instrumented 2026-11-20: server alive,
+	 *  turn gone at ~6s). The same call names the session, which native uses
+	 *  to poll /api/chats/{id}/notice while hidden and post the AI-state
+	 *  notices itself — the WebView may be dead by then. No-op on desktop. */
 	const turnBusy = turnInFlight || status === "submitted" || status === "streaming";
 	useEffect(() => {
-		const bridge = (window as unknown as { LhChrome?: { setTurnActive?: (active: boolean) => void } }).LhChrome;
+		const bridge = (window as unknown as { LhChrome?: { setTurnContext?: (chatId: string, active: boolean) => void } }).LhChrome;
 		try {
-			bridge?.setTurnActive?.(turnBusy);
+			bridge?.setTurnContext?.(chatId, turnBusy);
 		} catch {
 			// The bridge can throw if the activity is mid-teardown; the
 			// service's next toggle self-corrects.
 		}
-		return () => bridge?.setTurnActive?.(false);
-	}, [turnBusy]);
+		return () => {
+			try {
+				bridge?.setTurnContext?.(chatId, false);
+			} catch {
+				// Activity teardown — nothing left to stop.
+			}
+		};
+	}, [chatId, turnBusy]);
 
 	// ── Central job observability (contracts.ts "THE ASYNC PROTOCOL" §4) ──
 	// ONE fetch of /api/jobs drives every job surface (transcript dispatch

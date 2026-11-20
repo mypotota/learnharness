@@ -8,4 +8,6 @@
     <string name="turn_keepalive_channel">回答生成中</string>
     <string name="turn_keepalive_title">LearnHarness 正在生成回答</string>
     <string name="turn_keepalive_text">切到后台也不会中断本轮回答</string>
+    <string name="ai_question_channel">AI 需要你回答</string>
+    <string name="ai_status_channel">AI 状态提醒</string>
 </resources>
