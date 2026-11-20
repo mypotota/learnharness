@@ -22,10 +22,28 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        lhShared {
+            storeFile file("../keystore/lh-shared.jks")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.lhShared
+        }
+        debug {
+            // The SHARED dev key, committed at mobile/android/keystore/.
+            // Android's default debug key is generated per machine
+            // (~/.android/debug.keystore), so a build from another PC had a
+            // different signature: `adb install -r` refused and the app had
+            // to be uninstalled first — wiping the learner's data. One key
+            // for every machine keeps updates in place.
+            signingConfig signingConfigs.lhShared
         }
     }
     sourceSets {

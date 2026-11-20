@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and below (android:fullBackupContent). Only the learner's
+     record is backed up: chats, jobs, settings and credentials. The ~60 MB
+     embedded server payload under files/lh-server is re-extracted on launch,
+     so backing it up would bloat the archive for nothing. -->
+<full-backup-content>
+    <include domain="file" path="data/" />
+    <include domain="file" path="auth.json" />
+    <include domain="file" path="chatgpt-credentials.json" />
+    <exclude domain="file" path="lh-server/" />
+    <exclude domain="file" path="logs/" />
+    <exclude domain="file" path="cache/" />
+    <exclude domain="cache" path="." />
+</full-backup-content>

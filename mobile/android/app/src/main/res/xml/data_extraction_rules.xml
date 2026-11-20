@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ (android:dataExtractionRules). Same shape as backup_rules:
+     the learner's record travels, the re-extracted server payload does not. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="file" path="data/" />
+        <include domain="file" path="auth.json" />
+        <include domain="file" path="chatgpt-credentials.json" />
+        <exclude domain="file" path="lh-server/" />
+        <exclude domain="file" path="logs/" />
+        <exclude domain="file" path="cache/" />
+        <exclude domain="cache" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="file" path="data/" />
+        <include domain="file" path="auth.json" />
+        <include domain="file" path="chatgpt-credentials.json" />
+        <exclude domain="file" path="lh-server/" />
+        <exclude domain="file" path="logs/" />
+        <exclude domain="file" path="cache/" />
+        <exclude domain="cache" path="." />
+    </device-transfer>
+</data-extraction-rules>

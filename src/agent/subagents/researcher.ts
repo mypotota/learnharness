@@ -94,7 +94,7 @@ export interface ResearcherRunOptions {
 export async function runResearcherAgent(prompt: string, opts: ResearcherRunOptions = {}): Promise<string> {
 	const tools = Object.values(createWebTools(opts.search ?? (() => null)));
 	if (opts.pdfDir) tools.push(...Object.values(createPdfReadTools(opts.pdfDir)));
-	const { text } = await runSubagent(tools, {
+	const { text, newMessages } = await runSubagent(tools, {
 		role: "researcher",
 		prompt,
 		engine: opts.engine,
@@ -105,7 +105,26 @@ export async function runResearcherAgent(prompt: string, opts: ResearcherRunOpti
 		onToolStart: opts.onToolStart,
 		chatId: opts.chatId,
 	});
-	return text;
+	if (text.trim()) return text;
+	// Turn budget exhausted with only tool calls / thinking and no final
+	// prose — the job used to die here as "the researcher produced no text".
+	// The gathered material is already in the transcript, so ask once more
+	// with NO tools: now the brief is the only possible answer.
+	const salvaged = await runSubagent([], {
+		role: "researcher",
+		messages: newMessages,
+		prompt:
+			"You are out of research steps. Write the final brief NOW from the material already " +
+			"gathered above, in the required format. Do not request tools.",
+		engine: opts.engine,
+		systemPrompt: INSTRUCTIONS,
+		maxTurns: 1,
+		abortSignal: opts.abortSignal,
+		onUsage: opts.onUsage,
+		chatId: opts.chatId,
+	});
+	if (salvaged.text.trim()) return salvaged.text;
+	throw new Error("the researcher produced no text");
 }
 
 export type ResearcherAgent = ReturnType<typeof runResearcherAgent>;

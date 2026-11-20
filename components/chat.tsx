@@ -1428,30 +1428,6 @@ export function Chat({
 		};
 	}, [status, error, clearError, resumeStream]);
 
-	/** The native turn context (mobile): the busy span keeps the app out of
-	 *  Android's cached state, so the embedded server's upstream LLM socket
-	 *  survives a background stretch (instrumented 2026-11-20: server alive,
-	 *  turn gone at ~6s). The same call names the session, which native uses
-	 *  to poll /api/chats/{id}/notice while hidden and post the AI-state
-	 *  notices itself — the WebView may be dead by then. No-op on desktop. */
-	const turnBusy = turnInFlight || status === "submitted" || status === "streaming";
-	useEffect(() => {
-		const bridge = (window as unknown as { LhChrome?: { setTurnContext?: (chatId: string, active: boolean) => void } }).LhChrome;
-		try {
-			bridge?.setTurnContext?.(chatId, turnBusy);
-		} catch {
-			// The bridge can throw if the activity is mid-teardown; the
-			// service's next toggle self-corrects.
-		}
-		return () => {
-			try {
-				bridge?.setTurnContext?.(chatId, false);
-			} catch {
-				// Activity teardown — nothing left to stop.
-			}
-		};
-	}, [chatId, turnBusy]);
-
 	// ── Central job observability (contracts.ts "THE ASYNC PROTOCOL" §4) ──
 	// ONE fetch of /api/jobs drives every job surface (transcript dispatch
 	// cards, the sub-agents panel) and re-syncs the transcript exactly once
@@ -1470,6 +1446,33 @@ export function Chat({
 	// (duplicate message ids). So: a settle during a busy turn defers the
 	// sync; the next idle fetch adopts the finished record.
 	const [jobs, setJobs] = useState<JobRecord[]>([]);
+	/** The native busy context (mobile): keeps the app out of Android's cached
+	 *  state, so the embedded server's upstream LLM socket survives a
+	 *  background stretch (instrumented 2026-11-20: server alive, turn gone at
+	 *  ~6s). Background JOBS count too: a research/demo/visual/pdf sub-agent
+	 *  runs in this same process, and freezing it killed the job's upstream
+	 *  stream ("Research failed: terminated", owner 2026-11-20). The same call
+	 *  names the session, which native uses to poll /api/chats/{id}/notice
+	 *  while hidden and post the AI-state notices itself — the WebView may be
+	 *  dead by then. No-op on desktop. */
+	const turnBusy = turnInFlight || status === "submitted" || status === "streaming";
+	const nativeBusy = turnBusy || jobs.some((job) => job.status === "running");
+	useEffect(() => {
+		const bridge = (window as unknown as { LhChrome?: { setTurnContext?: (chatId: string, active: boolean) => void } }).LhChrome;
+		try {
+			bridge?.setTurnContext?.(chatId, nativeBusy);
+		} catch {
+			// The bridge can throw if the activity is mid-teardown; the
+			// service's next toggle self-corrects.
+		}
+		return () => {
+			try {
+				bridge?.setTurnContext?.(chatId, false);
+			} catch {
+				// Activity teardown — nothing left to stop.
+			}
+		};
+	}, [chatId, nativeBusy]);
 	const localStreamRef = useRef(false);
 	localStreamRef.current = localStream;
 	const jobStatusRef = useRef<Map<string, string>>(new Map());
