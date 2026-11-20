@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { CLAUDE_CODE_PROVIDER, sessionCacheHitRate, subscriptionLabels, subscriptionLabel, type cliContextWindowOf, type SessionPricing, type TurnUsage } from "@/src/core";
 import { formatTokens, formatUsd, planCostLabel, prettyModel } from "@/components/usage-format";
 import { ModelControl, catalogLimits, useModelCatalog } from "@/components/model-picker";
@@ -83,6 +83,32 @@ export function StatsBar({
 	const barRef = useRef<HTMLDivElement>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
 	const popupLayer = usePopoverDismiss(barRef, open && !!(chatId || turns.length), () => setOpen(false), { layerRootRef: panelRef });
+	// Phone widths: the summary button can end up toward the right of a wrapped
+	// stats row (plugin dock, practice composer) and a w-72 panel anchored to its
+	// left edge hangs off-screen. Clamp the panel into an 8px margin; desktop
+	// keeps the CSS centring because panelLeft stays null there.
+	const [panelLeft, setPanelLeft] = useState<number | null>(null);
+	useEffect(() => {
+		if (!open) {
+			setPanelLeft(null);
+			return;
+		}
+		const place = () => {
+			const el = barRef.current;
+			if (!el || !window.matchMedia("(max-width: 639px)").matches) {
+				setPanelLeft(null);
+				return;
+			}
+			const edge = 8;
+			const barLeft = el.getBoundingClientRect().left;
+			const width = Math.min(18 * 16, window.innerWidth - edge * 2); // w-72
+			const left = Math.min(Math.max(edge, barLeft), Math.max(edge, window.innerWidth - width - edge));
+			setPanelLeft(Math.round(left - barLeft));
+		};
+		place();
+		window.addEventListener("resize", place);
+		return () => window.removeEventListener("resize", place);
+	}, [open]);
 	// The picker reports its effective selection. CLI windows are session-
 	// scoped; unknown metadata always means usage-only, never a guessed maximum.
 	const { catalog } = useModelCatalog();
@@ -147,11 +173,11 @@ export function StatsBar({
 					<div
 						ref={panelRef}
 						data-testid="stats-detail"
-						style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order }}
+						style={{ zIndex: INTERACTION_LAYER_Z_BASE + popupLayer.order, left: panelLeft ?? undefined }}
 						// Centered on desktop; on a phone the button sits at the
 						// row's left edge, so centering pushed the 288px panel
 						// off-screen. Compact aligns the panel to the button.
-						className="absolute bottom-full left-1/2 mb-1.5 w-72 -translate-x-1/2 rounded-xl border bg-card p-3 text-xs shadow-xl max-md:left-0 max-md:translate-x-0"
+						className="absolute bottom-full left-1/2 mb-1.5 max-h-[70vh] w-72 max-w-[calc(100vw-1rem)] -translate-x-1/2 overflow-y-auto rounded-xl border bg-card p-3 text-xs shadow-xl max-md:left-0 max-md:translate-x-0"
 					>
 						<div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							{t("stats.title")}

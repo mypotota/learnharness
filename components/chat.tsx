@@ -132,8 +132,11 @@ import { currentUserThinkingOpen, setAllUserThinkingOpen } from "@/components/th
  * full session width with a thin px-6 margin; the composer/question DOCK is
  * deliberately narrower (~46rem centered) per the reference. Same ELEMENT,
  * same place — width polish only.
+ *
+ * On phone widths the margin drops to 12px: at 412px the 24px desktop gutter
+ * cost ~12% of the reading area.
  */
-const COLUMN = "mx-auto w-full max-w-none px-6";
+const COLUMN = "mx-auto w-full max-w-none px-6 max-sm:px-3";
 const DOCK = "mx-auto w-full max-w-[46rem] px-4";
 // The DOCK container's fixed width (46rem) and the plan marginalia's
 // geometry (owner, plan-placement round): the bare diagram sits in the
@@ -1833,7 +1836,7 @@ export function Chat({
 					<SessionMessageNavigation />
 					<TranscriptElementReporter onElement={setTranscriptElement} />
 					<ConversationContent className="min-h-full gap-0 p-0">
-						<div data-session-find-root="" className={`${COLUMN} flex flex-1 flex-col gap-4 pt-4`}>
+						<div data-session-find-root="" className={`${COLUMN} flex flex-1 flex-col gap-4 pt-4 max-sm:gap-3 max-sm:pt-3`}>
 							{messages.length === 0 && !busy && (
 								<ConversationEmptyState
 									title={t("chat.newSession")}

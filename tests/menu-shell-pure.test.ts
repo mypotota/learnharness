@@ -80,6 +80,31 @@ describe("computeMenuPlacement — cap + position", () => {
 		assert.ok(!("right" in p.style));
 	});
 });
+describe("computeMenuPlacement — horizontal clamp", () => {
+	// Measured widths matter on phones: the model menu is 352px and the
+	// composer pills sit near the row's right edge, so an unclamped
+	// left-alignment hung 16px off a 360px screen (and further at 412px).
+	it("pulls a menu wider than the room left of it back to the edge", () => {
+		const p = computeMenuPlacement({ top: 700, bottom: 740, left: 230, right: 310 }, { width: 360, height: 800 }, 200, "up", "left", 352);
+		assert.equal(p.style.left, 8);
+	});
+
+	it("leaves a menu that already fits untouched", () => {
+		const p = computeMenuPlacement({ top: 100, bottom: 140, left: 36, right: 116 }, { width: 412, height: 800 }, 200, "down", "left", 352);
+		assert.equal(p.style.left, 36);
+	});
+
+	it("mirrors the clamp for right-aligned menus", () => {
+		const p = computeMenuPlacement({ top: 100, bottom: 140, left: 344, right: 404 }, { width: 412, height: 800 }, 200, "down", "right", 288);
+		assert.equal(p.style.right, 8);
+	});
+
+	it("shrink-wraps to the viewport when the menu is wider than the screen", () => {
+		const p = computeMenuPlacement({ top: 100, bottom: 140, left: 100, right: 180 }, { width: 320, height: 800 }, 200, "down", "left", 400);
+		assert.equal(p.style.left, 8);
+	});
+});
+
 describe("menuAnchorRect — the anchor seam", () => {
 	const doc = { querySelector: () => ({ getBoundingClientRect: () => ({ top: 1, bottom: 2, left: 3, right: 4 }) }) } as unknown as Pick<Document, "querySelector">;
 	it("prefers a virtual anchor rect when it yields one", () => {
