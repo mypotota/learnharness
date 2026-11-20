@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch surfaces follow the SYSTEM light/dark setting (owner choice
+        2026-11-20), with the app's own theme colours: the Light theme's
+        background/text for light, the Default (dark) theme's for night. -->
+    <color name="splash_background">#eff1f5</color>
+    <color name="splash_mark">#4c4f69</color>
+    <!-- The spiral is the artwork's own grey in both modes. -->
+    <color name="splash_mark_accent">#949494</color>
+    <color name="splash_text">#6c6f85</color>
+    <color name="splash_progress">#4c4f69</color>
+</resources>

@@ -208,13 +208,13 @@ public final class ServerRuntime {
         }
     }
 
-    /** Poll the loopback port until the server answers or the attempt budget
+    /** Poll the loopback root until the server answers or the attempt budget
      *  runs out; also bails out early when node itself dies. */
     private static boolean awaitReady(Process process) {
         long deadline = System.currentTimeMillis() + READY_TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline) {
             if (process.isAlive()) {
-                if (portAnswers()) return true;
+                if (httpAnswers()) return true;
                 sleep(POLL_INTERVAL_MS);
             } else {
                 return false;
@@ -223,11 +223,21 @@ public final class ServerRuntime {
         return false;
     }
 
-    private static boolean portAnswers() {
+    /** A listening port is NOT enough: the WebView then navigates to a socket
+     *  that cannot serve the document yet, and the browser paints its error
+     *  page (owner report 2026-11-20). Wait for an actual HTTP status line. */
+    private static boolean httpAnswers() {
         try (Socket socket = new Socket()) {
             socket.connect(new InetSocketAddress("127.0.0.1", SERVER_PORT), 500);
-            return true;
-        } catch (IOException closed) {
+            socket.setSoTimeout(2000);
+            OutputStream out = socket.getOutputStream();
+            out.write(("GET / HTTP/1.1\r\nHost: 127.0.0.1:" + SERVER_PORT
+                    + "\r\nConnection: close\r\n\r\n").getBytes("US-ASCII"));
+            out.flush();
+            byte[] buffer = new byte[32];
+            int read = socket.getInputStream().read(buffer);
+            return read > 0 && new String(buffer, 0, read, "US-ASCII").startsWith("HTTP/");
+        } catch (IOException notYet) {
             return false;
         }
     }

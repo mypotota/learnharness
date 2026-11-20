@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night (system dark): the app's Default theme colours. -->
+    <color name="splash_background">#141414</color>
+    <color name="splash_mark">#e6e6e6</color>
+    <color name="splash_text">#8d8d8d</color>
+    <color name="splash_progress">#8d8d8d</color>
+</resources>

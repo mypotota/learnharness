@@ -7,13 +7,17 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.JavascriptInterface;
+import android.webkit.WebResourceError;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.FrameLayout;
@@ -36,19 +40,35 @@ import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.BridgeWebViewClient;
 
 /**
- * The window onto the loopback desktop server. The Capacitor WebView exists
- * from the start but stays behind a splash overlay until ServerRuntime
- * reports the Node server answering on 127.0.0.1:41100 — no error-page flash,
- * the launch splash simply hands over to the app. External links, file
- * choosing and getUserMedia prompts are Capacitor built-ins driven by the
+ * The window onto the loopback desktop server. Capacitor navigates to
+ * `server.url` from the start — before node listens — so the WebView itself
+ * stays invisible behind the launch splash until the first real document has
+ * painted: the browser's error page never reaches the screen, the splash
+ * simply hands over to the app. External links, file choosing and
+ * getUserMedia prompts are Capacitor built-ins driven by the
  * server.allowNavigation config.
  */
 public class MainActivity extends BridgeActivity {
     private FrameLayout splash;
     private TextView splashError;
+    /** True once ServerRuntime saw the server answer HTTP; before that the
+     *  WebView's own navigation (Capacitor's `server.url`) is expected to
+     *  fail and must stay invisible. */
+    private boolean serverReady = false;
+    /** True once the real document has painted and the splash is gone. */
+    private boolean pageRevealed = false;
+    /** Set by a failed main-frame load and cleared by the next page start, so
+     *  the browser's error page is never mistaken for a finished page. */
+    private boolean mainFrameFailed = false;
+    private int revealRetries = 0;
+    private static final int MAX_REVEAL_RETRIES = 5;
+    private static final long REVEAL_RETRY_MS = 500;
+    private final Handler ui = new Handler(Looper.getMainLooper());
     /** System-bar / cutout insets in CSS pixels: top, right, bottom, left. */
     private int[] safeArea = new int[]{0, 0, 0, 0};
     /** AI-state notification ids (see notifyAIState) — fixed so each state
@@ -83,6 +103,7 @@ public class MainActivity extends BridgeActivity {
 
         installSplash();
         polishWebViewSettings();
+        holdWebViewUntilFirstPaint();
         RenderService.start(this);
         ServerRuntime.start(
                 getApplicationContext(),
@@ -120,6 +141,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onDestroy() {
+        ui.removeCallbacksAndMessages(null);
         stopTurnWatcher();
         RenderService.stop();
         super.onDestroy();
@@ -323,19 +345,12 @@ public class MainActivity extends BridgeActivity {
                 });
     }
 
-    /** Full-screen overlay matching the launch theme's window background. */
+    /** The in-app launch surface (layout/splash_overlay.xml): the app mark, the
+     *  wordmark and one thin progress line, painted in the same colours as the
+     *  system splash so the hand-over is invisible. */
     private void installSplash() {
-        splash = new FrameLayout(this);
-        splash.setBackgroundResource(R.drawable.splash);
-        splashError = new TextView(this);
-        splashError.setText(R.string.startup_failure);
-        splashError.setTextColor(Color.WHITE);
-        splashError.setGravity(Gravity.CENTER);
-        splashError.setVisibility(TextView.GONE);
-        FrameLayout.LayoutParams errorLayout = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        errorLayout.gravity = Gravity.CENTER;
-        splash.addView(splashError, errorLayout);
+        splash = (FrameLayout) getLayoutInflater().inflate(R.layout.splash_overlay, null);
+        splashError = splash.findViewById(R.id.splash_error);
         addContentView(splash, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
@@ -443,21 +458,90 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    /** Capacitor navigates to `server.url` as soon as the bridge exists — long
+     *  before node listens — so the browser paints its own error page (owner
+     *  report 2026-11-20). None of that may reach the screen: the WebView
+     *  starts invisible, failed main-frame loads are retried silently, and
+     *  only a finished real document reveals it and dismisses the splash. */
+    private void holdWebViewUntilFirstPaint() {
+        Bridge bridge = getBridge();
+        if (bridge == null || bridge.getWebView() == null) return;
+        final WebView webView = bridge.getWebView();
+        webView.setVisibility(View.INVISIBLE);
+        bridge.setWebViewClient(new BridgeWebViewClient(bridge) {
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+                if (isAppUrl(url)) mainFrameFailed = false;
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                if (isAppUrl(url) && !mainFrameFailed) revealPage();
+            }
+
+            @Override
+            public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
+                super.onReceivedError(view, request, error);
+                if (!request.isForMainFrame() || pageRevealed) return;
+                mainFrameFailed = true;
+                // The pre-server navigation is expected to fail; onServerReady
+                // loads the page itself. A failure after that is transient, so
+                // it is retried silently instead of surfacing the error page.
+                if (!serverReady) return;
+                if (revealRetries++ >= MAX_REVEAL_RETRIES) {
+                    // Never freeze on the splash: show what the browser has and
+                    // let the learner see the real failure state.
+                    revealPage();
+                    return;
+                }
+                ui.postDelayed(() -> {
+                    if (!pageRevealed && !isFinishing() && !isDestroyed()) webView.loadUrl(appUrl());
+                }, REVEAL_RETRY_MS);
+            }
+        });
+    }
+
+    private static String appUrl() {
+        return "http://127.0.0.1:" + ServerRuntime.SERVER_PORT + "/";
+    }
+
+    private static boolean isAppUrl(String url) {
+        return url != null && url.startsWith("http://127.0.0.1:" + ServerRuntime.SERVER_PORT + "/");
+    }
+
+    private void revealPage() {
+        if (pageRevealed || isFinishing() || isDestroyed()) return;
+        pageRevealed = true;
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().setVisibility(View.VISIBLE);
+        }
+        if (splash != null && splash.getParent() != null) {
+            ((ViewGroup) splash.getParent()).removeView(splash);
+        }
+        splash = null;
+        splashError = null;
+    }
+
     private void onServerReady() {
         if (isFinishing() || isDestroyed()) return;
-        if (splash != null && splash.getParent() != null) {
-            ViewGroup root = (ViewGroup) splash.getParent();
-            root.removeView(splash);
-            splash = null;
-            splashError = null;
-        }
+        serverReady = true;
+        mainFrameFailed = false;
         if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().loadUrl("http://127.0.0.1:" + ServerRuntime.SERVER_PORT + "/");
+            getBridge().getWebView().loadUrl(appUrl());
         }
     }
 
     private void onServerFailed() {
         if (isFinishing() || isDestroyed() || splashError == null) return;
+        // The mark and the progress line would imply work is still happening.
+        if (splash != null) {
+            View brand = splash.findViewById(R.id.splash_brand);
+            View progress = splash.findViewById(R.id.splash_progress);
+            if (brand != null) brand.setVisibility(View.GONE);
+            if (progress != null) progress.setVisibility(View.GONE);
+        }
         splashError.setVisibility(TextView.VISIBLE);
     }
 }
