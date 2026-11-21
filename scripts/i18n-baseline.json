@@ -29,6 +29,7 @@
 		"src/core/question-core.ts::The single question to ask. ONE question per turn: ask, then end your turn — the answer determines the next.",
 		"src/core/question-core.ts::The single quiz question to ask. ONE question per turn: ask, then end your turn — the answer determines the next question.",
 		"src/core/search.ts::Brave",
+		"src/core/search.ts::GLM Coding Plan",
 		"src/core/session-markdown.ts::Concluded",
 		"src/core/session-markdown.ts::Learner answer",
 		"src/core/session-markdown.ts::Problem",

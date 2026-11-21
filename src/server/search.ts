@@ -19,6 +19,8 @@
  * tool depends on the PORT only and tests never touch the network.
  */
 
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { SEARCH_ENGINES, type SearchEngineId, type SearchHit, type SearchProvider, type SearchStatus } from "../core/search.ts";
 import { keyValue } from "./keys.ts";
 import { effectiveSettings } from "./stores.ts";
@@ -211,6 +213,89 @@ export function ollamaProvider(apiKey: string, fetchFn: FetchLike = fetch): Sear
 	};
 }
 
+/** The GLM Coding Plan's included web-search MCP (verified live on a phone
+ *  with the coding-plan key, 2026-11-21). The plan's own key authorizes it;
+ *  the separately-billed paas/v4/web_search endpoint is NOT this path. */
+export const ZHIPU_SEARCH_MCP_URL = "https://open.bigmodel.cn/api/mcp/web_search_prime/mcp";
+
+/** The MCP tool's text payload is JSON (sometimes JSON-encoded twice). Parse
+ *  defensively and normalize rows through the shared SearchHit contract. */
+export function parseZhipuSearchContent(content: unknown): SearchHit[] {
+	const texts: string[] = [];
+	if (Array.isArray(content)) {
+		for (const part of content) {
+			if (!part || typeof part !== "object") continue;
+			const { type, text } = part as { type?: unknown; text?: unknown };
+			if (type === "text" && typeof text === "string") texts.push(text);
+		}
+	}
+	const hits: SearchHit[] = [];
+	for (const raw of texts) {
+		let value: unknown = raw;
+		for (let depth = 0; depth < 3 && typeof value === "string"; depth++) {
+			try {
+				value = JSON.parse(value) as unknown;
+			} catch {
+				value = null;
+				break;
+			}
+		}
+		if (!Array.isArray(value)) continue;
+		for (const row of value) {
+			if (!row || typeof row !== "object") continue;
+			const { title, link, content: snippet } = row as { title?: unknown; link?: unknown; content?: unknown };
+			hits.push(...searchHit(title, link, snippet));
+		}
+	}
+	return hits;
+}
+
+/** One MCP round trip: connect, call web_search_prime, close. The transport
+ *  is stateless per call, so key rotation needs no client lifecycle. */
+export async function callZhipuSearch(apiKey: string, query: string): Promise<{ content?: unknown; isError?: boolean }> {
+	const transport = new StreamableHTTPClientTransport(new URL(ZHIPU_SEARCH_MCP_URL), {
+		requestInit: { headers: { authorization: `Bearer ${apiKey}` } },
+	});
+	const client = new Client({ name: "learnharness", version: "0.0.1" });
+	try {
+		await client.connect(transport);
+		const result = await client.callTool(
+			{ name: "web_search_prime", arguments: { search_query: query.slice(0, 200), content_size: "medium" } },
+			undefined,
+			{ timeout: 30_000 },
+		);
+		// The SDK's union also carries the legacy task-result shape; this
+		// server returns the standard {content, isError} envelope.
+		return result as { content?: unknown; isError?: boolean };
+	} finally {
+		await client.close().catch(() => {});
+	}
+}
+
+/** GLM Coding Plan search: bytes ride the MCP SDK (no fetch seam), so tests
+ *  inject the round trip instead. */
+export function zhipuProvider(
+	apiKey: string,
+	call: (apiKey: string, query: string) => Promise<{ content?: unknown; isError?: boolean }> = callZhipuSearch,
+): SearchProvider {
+	return {
+		id: "zhipu",
+		async search(query: string, count: number): Promise<SearchHit[]> {
+			const result = await call(apiKey, query);
+			if (result.isError) {
+				const detail = Array.isArray(result.content)
+					? result.content
+							.map((part) => (part && typeof part === "object" && typeof (part as { text?: unknown }).text === "string" ? (part as { text: string }).text : ""))
+							.join(" ")
+							.trim()
+					: "";
+				throw new Error(`Zhipu search MCP: ${detail.slice(0, 200) || "request failed"}`);
+			}
+			return parseZhipuSearchContent(result.content).slice(0, Math.min(20, Math.max(1, Math.floor(count))));
+		},
+	};
+}
+
 /** Match Exa's bounded result contract for the other new adapters. */
 function searchHit(title: unknown, url: unknown, snippet: unknown): SearchHit[] {
 	if (typeof url !== "string" || !url.trim()) return [];
@@ -270,7 +355,7 @@ export function resolveSearchEngineFor(
 	return {
 		available: false,
 		engine: null,
-		reason: "no search engine configured — set a Tavily, Brave, Exa, Firecrawl, or Ollama search API key",
+		reason: "no search engine configured — set a Tavily, Brave, Exa, Firecrawl, or Ollama search API key, or a GLM Coding Plan key (ZAI_CODING_CN_API_KEY)",
 		key: null,
 	};
 }
@@ -308,6 +393,8 @@ export function searchProvider(): SearchProvider | null {
 			return firecrawlProvider(resolved.key);
 		case "ollama":
 			return ollamaProvider(resolved.key);
+		case "zhipu":
+			return zhipuProvider(resolved.key);
 		default:
 			return null;
 	}

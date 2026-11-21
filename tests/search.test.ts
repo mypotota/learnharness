@@ -11,7 +11,7 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveSearchEngineFor, tavilyProvider, braveProvider, exaProvider, firecrawlProvider, ollamaProvider } from "../src/server/search.ts";
+import { resolveSearchEngineFor, tavilyProvider, braveProvider, exaProvider, firecrawlProvider, ollamaProvider, zhipuProvider, parseZhipuSearchContent } from "../src/server/search.ts";
 import { SEARCH_ENGINES, isSearchEngineId, type SearchEngineId } from "../src/core/search.ts";
 
 describe("resolveSearchEngineFor (the auto-detect decision)", () => {
@@ -287,7 +287,7 @@ describe("ollamaProvider (hosted search only)", () => {
 
 describe("five-engine catalog and resolution", () => {
 	it("pins the approved Automatic order independently of table-driven tests", () => {
-		assert.deepEqual(SEARCH_ENGINES.map(({ id }) => id), ["tavily", "brave", "exa", "firecrawl", "ollama"]);
+		assert.deepEqual(SEARCH_ENGINES.map(({ id }) => id), ["tavily", "brave", "exa", "firecrawl", "ollama", "zhipu"]);
 		assert.equal(isSearchEngineId("chatgpt"), false);
 		assert.equal(isSearchEngineId("deepseek"), false);
 		for (const value of [null, {}, 1, "", "toString"]) assert.equal(isSearchEngineId(value), false);
@@ -365,4 +365,47 @@ it("Firecrawl drops invalid result rows and normalizes only search descriptions"
 		{ title: "https://example.org", url: "https://example.org", snippet: "x".repeat(500) },
 		{ title: "https://example.com", url: "https://example.com", snippet: "" },
 	]);
+});
+
+describe("zhipuProvider (GLM Coding Plan web_search_prime MCP)", () => {
+	it("parses the tool's text payload, including the double-encoded array", () => {
+		const rows = [
+			{ title: "MDN", link: "https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Reference/Status/404", content: "line1\nline2" },
+			{ title: "No link", content: "dropped" },
+			{ title: "Bad protocol", link: "javascript:alert(1)", content: "dropped" },
+			null, 1,
+		];
+		const once = JSON.stringify(rows);
+		assert.deepEqual(parseZhipuSearchContent([{ type: "text", text: once }]), [
+			{ title: "MDN", url: "https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Reference/Status/404", snippet: "line1 line2" },
+		]);
+		assert.deepEqual(parseZhipuSearchContent([{ type: "text", text: JSON.stringify(once) }]), [
+			{ title: "MDN", url: "https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Reference/Status/404", snippet: "line1 line2" },
+		]);
+		assert.deepEqual(parseZhipuSearchContent([{ type: "image" }, { type: "text", text: "not json" }]), []);
+		assert.deepEqual(parseZhipuSearchContent(undefined), []);
+	});
+
+	it("calls web_search_prime with the query and bounds the result count", async () => {
+		const queries: string[] = [];
+		const rows = Array.from({ length: 10 }, (_, i) => ({ title: `r${i}`, link: `https://example.com/${i}`, content: `s${i}` }));
+		const provider = zhipuProvider("zai-fake-key-123456", async (key, query) => {
+			assert.equal(key, "zai-fake-key-123456");
+			queries.push(query);
+			return { content: [{ type: "text", text: JSON.stringify(rows) }], isError: false };
+		});
+		assert.equal((await provider.search("test query", 5)).length, 5);
+		assert.equal((await provider.search("test query", 200)).length, 10);
+		assert.deepEqual(queries, ["test query", "test query"]);
+	});
+
+	it("surfaces MCP errors without exposing the key", async () => {
+		const key = "zai-fake-secret-987654";
+		const provider = zhipuProvider(key, async () => ({
+			content: [{ type: "text", text: "MCP error -401: Api key not found" }],
+			isError: true,
+		}));
+		await assert.rejects(provider.search("q", 5), (error: Error) =>
+			/Zhipu search MCP: MCP error -401/.test(error.message) && !error.message.includes(key));
+	});
 });

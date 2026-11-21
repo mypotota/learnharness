@@ -35,6 +35,11 @@ export const SEARCH_ENGINES = [
 	{ id: "exa", label: "Exa", envVar: "EXA_API_KEY" },
 	{ id: "firecrawl", label: "Firecrawl", envVar: "FIRECRAWL_API_KEY" },
 	{ id: "ollama", label: "Ollama", envVar: "OLLAMA_API_KEY" },
+	/** The GLM Coding Plan's included web-search MCP (web_search_prime).
+	 *  Reuses the coding-plan key — no separate search subscription. Last in
+	 *  preference order (owner decision, 2026-11-21): an explicit pin or any
+	 *  already-configured third-party engine keeps precedence. */
+	{ id: "zhipu", label: "GLM Coding Plan", envVar: "ZAI_CODING_CN_API_KEY" },
 ] as const;
 
 export type SearchEngineId = (typeof SEARCH_ENGINES)[number]["id"];
