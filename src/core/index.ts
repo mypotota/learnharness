@@ -120,3 +120,7 @@ export * from "./plugin-submissions.ts";
 export type * from "./plugin-ui.ts";
 export type * from "./plugin-tree.ts";
 export * from "./plugin-agents.ts";
+// sync.ts (webdav-sync wave, 2026-11-21): the conflict protocol, path
+// whitelist and settings projection — pure and browser-safe (hashing and
+// tar stay server-side).
+export * from "./sync.ts";

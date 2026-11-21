@@ -21,8 +21,16 @@ dist/
 /core-plugins/
 /.core-plugins-*/
 
+# Agent planning docs may quote live server addresses/ports — never committed.
+.trae/
+
 # dev auth/keys store (auth-keys wave): repo-root auth.json — secrets never committed
 auth.json
+# WebDAV sync records (webdav-sync wave): live beside auth.json and hold the
+# plaintext endpoint credential — never committed.
+sync-config.json
+sync-state.json
+sync-journal.json
 chatgpt-credentials.json*
 github-copilot-credentials.json*
 xai-credentials.json*

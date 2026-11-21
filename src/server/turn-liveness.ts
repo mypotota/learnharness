@@ -136,3 +136,11 @@ export function isTurnRunning(chatId: string): boolean {
 export function turnStartedAt(chatId: string): number | undefined {
 	return inFlight.get(chatId);
 }
+
+/** True while ANY chat has a turn in flight. Sync refuses to swap data
+ *  under a running turn: its write-ahead record and streaming buffer would
+ *  target files that the import is about to replace. */
+export function anyTurnRunning(): boolean {
+	for (const chatId of inFlight.keys()) if (isTurnRunning(chatId)) return true;
+	return false;
+}

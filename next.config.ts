@@ -109,6 +109,8 @@ const nextConfig: NextConfig = {
 			"node_modules/gcp-metadata/**/*",
 			"node_modules/json-bigint/**/*",
 			"node_modules/bignumber.js/**/*",
+			// Sync packages are built/read with tar's runtime-resolved helpers.
+			"node_modules/tar/**/*",
 		],
 	},
 	// Framework-free core lives in src/ (plain TS, imported by routes and CLI alike).
@@ -121,6 +123,7 @@ const nextConfig: NextConfig = {
 		"@napi-rs/canvas", // native binding — bundling breaks the .node require
 		"@silvia-odwyer/photon-node", // CJS loads its adjacent WASM from disk
 		"@resvg/resvg-js", // native binding — same
+		"tar", // runtime fs/stream helpers; keep the traced package intact
 	],
 };
 

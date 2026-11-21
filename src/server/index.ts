@@ -51,6 +51,8 @@ export * from "./settings-body.ts";
 export { fileAccessConfigurationError } from "./file-access.ts";
 export * from "./turn-liveness.ts";
 export * from "./turn-runs.ts";
+// The WebDAV sync service (webdav-sync wave, 2026-11-21).
+export * from "./sync/index.ts";
 export * from "./dismissal-park.ts";
 export * from "./compaction.ts";
 export { sideChats, createSideChatService, type SideChatService, type SideChatDeps, type SideStreamEvent } from "./side-chat.ts";

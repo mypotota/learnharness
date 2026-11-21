@@ -157,3 +157,16 @@ export const THEMES_DIR = path.join(/* turbopackIgnore: true */ DATA_ROOT, "them
 export const AUTH_FILE = process.env.LH_AUTH_FILE
 	? path.resolve(/* turbopackIgnore: true */ process.env.LH_AUTH_FILE)
 	: path.join(/* turbopackIgnore: true */ ROOT, "auth.json");
+
+/**
+ * THE WEBDAV SYNC FILES (webdav-sync wave, 2026-11-21): LOCAL-ONLY records
+ * beside auth.json — never inside DATA_ROOT, so they never enter a sync
+ * package. sync-config.json holds the endpoint + Basic-auth credential
+ * (0600, plaintext by the owner's explicit HTTP decision);
+ * sync-state.json holds this device's identity and last-applied seq/hash;
+ * sync-journal.json marks an import in flight for crash recovery.
+ */
+const SECRET_DIR = path.dirname(/* turbopackIgnore: true */ AUTH_FILE);
+export const SYNC_CONFIG_FILE = path.join(/* turbopackIgnore: true */ SECRET_DIR, "sync-config.json");
+export const SYNC_STATE_FILE = path.join(/* turbopackIgnore: true */ SECRET_DIR, "sync-state.json");
+export const SYNC_JOURNAL_FILE = path.join(/* turbopackIgnore: true */ SECRET_DIR, "sync-journal.json");
