@@ -16,4 +16,14 @@ export const stats = {
 	unpricedTurns: "Unpriced turns",
 	turns: "Turns",
 	steps: "{count} steps",
+	planUsage: {
+		title: "Plan usage",
+		fiveHour: "5-hour",
+		weekly: "7-day",
+		remaining: "{percent}% left",
+		resetsAt: "Resets {time}",
+		updatedAt: "Updated {time}",
+		refreshing: "Refreshing…",
+		refreshFailed: "Refresh failed — showing the last result",
+	},
 } as const;

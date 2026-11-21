@@ -64,6 +64,8 @@ import {
 	type ModelSlotName,
 } from "@/src/core";
 import { PlanBlock, PlanPopup, latestTree } from "@/components/plan-block";
+import { PlanUsageControl } from "@/components/plan-usage";
+import { splitQualified } from "@/components/usage-format";
 import { PlanMarginalia, planExists } from "@/components/plan-window";
 import { MermaidOverlay, SessionMermaidContext, type SessionImage } from "@/components/session-overlay";
 import { AbortTurnDialog, type AbortMode } from "@/components/abort-turn-dialog";
@@ -699,6 +701,12 @@ export function Chat({
 	catalogRef.current = catalog;
 	const [selectedModel, setSelectedModel] = useState<string | undefined>();
 	const recordSelectedModel = useCallback((model: string | undefined) => { submissionModel.observe(model); setSelectedModel(model); }, [submissionModel]);
+	// The plan-usage ring follows this session's effective model, falling
+	// back to the configured strong slot before the control reports one.
+	const planUsageProvider = useMemo(() => {
+		const selected = selectedModel ? splitQualified(selectedModel).provider : null;
+		return selected ?? catalog?.slots.strong?.model.provider;
+	}, [selectedModel, catalog]);
 	const [setupOpen, setSetupOpen] = useState(false);
 	/** The last explicitly-sent draft (composer send): the
 	 *  refusal flow restores it into the composer, where it waits for the
@@ -1827,6 +1835,7 @@ export function Chat({
 					) : (
 						<PhaseChip phase={phases.at(-1) ?? "probe"} />
 					)}
+					<PlanUsageControl provider={planUsageProvider} />
 					<PluginSessionTopBarActions readContext={actionContext} captureContext={captureActionContext} refreshRef={refreshPluginActions} />
 				</TopBar>
 

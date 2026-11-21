@@ -81,6 +81,7 @@ import { MenuShell } from "@/components/menu-shell.tsx";
 import { useInteractionLayers } from "@/components/interaction-layers";
 import { isInteractionScopeEligible } from "@/components/plugin-input-focus";
 import { DeleteNodeDialog } from "@/components/delete-node-dialog.tsx";
+import { PlanUsageControl } from "@/components/plan-usage.tsx";
 import { useT } from "@/components/i18n/i18n-provider";
 import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { ToolContentResponse } from "@/components/ai-elements/message";
@@ -1604,6 +1605,8 @@ export function GraphView({
 
 			<NotesImportErrors errors={notesImport.errors} />
 			<NotesImportNotices notices={notesImport.notices} />
+			{/* Plan quota ring (usage-query wave): the strong slot's provider. */}
+			<PlanUsageControl />
 			{/* Top-right tail (owner, 2026-09-20): the pipeline cost number —
 			    just a number, hover-highlighted, dropdown breakdown — then
 			    the running-pipeline pills under it. Lives BELOW the actions

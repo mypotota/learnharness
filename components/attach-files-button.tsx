@@ -92,6 +92,7 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 	const choosingFolder = useRef(false);
 	const [open, setOpen] = useState(false);
 	const [notice, setNotice] = useState("");
+	const [uploading, setUploading] = useState(false);
 	const [placement, setPlacement] = useState<ReturnType<typeof attachmentPopupPlacement> | null>(null);
 	const positioned = placement !== null;
 	// Like MenuShell, portal to body with viewport-capped, reanchored placement.
@@ -142,6 +143,34 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 		} catch { setNotice(t("composer.folderChooseFailed")); }
 		finally { choosingFolder.current = false; }
 	};
+	/** No Electron bridge (phone WebView / plain browser): the File objects
+	 *  are the only handle on the bytes. Upload them to the app's own data
+	 *  directory, then insert the resulting absolute paths exactly as the
+	 *  desktop flow does — the agent reads them through its normal tools. */
+	const uploadPicked = async (files: File[]) => {
+		if (files.length === 0) return;
+		setUploading(true);
+		setNotice(t("composer.uploading"));
+		try {
+			const form = new FormData();
+			for (const file of files) form.append("files", file, file.name);
+			const response = await fetch("/api/uploads", {
+				method: "POST",
+				headers: { "x-learnharness-upload": "1" },
+				body: form,
+			});
+			if (!response.ok) throw new Error(String(response.status));
+			const body = (await response.json()) as { files?: { path?: unknown }[] };
+			const paths = (body.files ?? []).map((file) => file.path).filter((path): path is string => typeof path === "string");
+			if (paths.length === 0) throw new Error("empty");
+			editorRef.current?.dispatchEvent(new CustomEvent(INSERT_FILE_PATHS_EVENT, { detail: paths }));
+			setNotice("");
+		} catch {
+			setNotice(t("composer.uploadFailed"));
+		} finally {
+			setUploading(false);
+		}
+	};
 	return (
 		<div className="relative shrink-0"
 			onBlur={(event) => { if (isInteractionScopeEligible(popupRef.current ?? buttonRef.current, controller) && !event.currentTarget.contains(event.relatedTarget) && !popupRef.current?.contains(event.relatedTarget)) setOpen(false); }}>
@@ -152,22 +181,27 @@ export function AttachFilesButton({ editorRef }: { editorRef: React.RefObject<HT
 				hidden
 				data-testid="attach-files-input"
 				onChange={(e) => {
+					const files = Array.from(e.currentTarget.files ?? []);
 					const resolve = window.lh?.getPathForFile;
-					const { paths } = resolve ? pathsForFiles(Array.from(e.currentTarget.files ?? []), resolve) : { paths: [] };
-					if (paths.length > 0) editorRef.current?.dispatchEvent(new CustomEvent(INSERT_FILE_PATHS_EVENT, { detail: paths }));
+					if (resolve) {
+						const { paths } = pathsForFiles(files, resolve);
+						if (paths.length > 0) editorRef.current?.dispatchEvent(new CustomEvent(INSERT_FILE_PATHS_EVENT, { detail: paths }));
+					} else {
+						void uploadPicked(files);
+					}
 					e.currentTarget.value = ""; // allow re-picking the same file
 				}}
 			/>
-			<Hint label={desktop ? t("composer.attachTitle") : t("composer.browserNotice")}>
+			<Hint label={desktop ? t("composer.attachTitle") : t("composer.uploadTitle")}>
 				<button
 					ref={buttonRef}
 					type="button"
 					aria-label={t("composer.attachFilesAria")}
-					aria-disabled={!desktop}
-					aria-haspopup="menu"
-					aria-expanded={open}
+					aria-disabled={uploading}
+					aria-haspopup={desktop ? "menu" : undefined}
+					aria-expanded={desktop ? open : undefined}
 					data-testid="attach-files"
-					onClick={() => { if (desktop) { setNotice(""); setOpen(!open); } }}
+					onClick={() => { if (uploading) return; setNotice(""); if (desktop) setOpen(!open); else pickerRef.current?.click(); }}
 					className="flex size-10 shrink-0 items-center justify-center rounded-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:hover:text-muted-foreground"
 				>
 					<PaperclipIcon className="size-4" />

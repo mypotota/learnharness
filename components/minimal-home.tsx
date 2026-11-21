@@ -23,6 +23,7 @@ import { ListTreeIcon } from "lucide-react";
 import { ChainTableOverlay } from "@/components/chain-table.tsx";
 import { GraphCostControl } from "@/components/graph-view.tsx";
 import { NotesImportControl, NotesImportErrors, NotesImportNotices, useNotesImport } from "@/components/notes-import.tsx";
+import { PlanUsageControl } from "@/components/plan-usage.tsx";
 import { Hint } from "@/components/ui/hint";
 import { useT } from "@/components/i18n/i18n-provider";
 import type { ChatSummary, GraphCostSummary, GraphSnapshot } from "@/src/core";
@@ -176,6 +177,8 @@ export function MinimalHome({
 				</div>
 				<NotesImportErrors errors={notesImport.errors} />
 				<NotesImportNotices notices={notesImport.notices} />
+				{/* Plan quota ring (usage-query wave): the strong slot's provider. */}
+				<PlanUsageControl />
 				{costs && costs.runs.length > 0 && <GraphCostControl costs={costs} />}
 			</div>
 

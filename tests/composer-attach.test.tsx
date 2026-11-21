@@ -1,7 +1,8 @@
 /**
  * The composer's attach button (issue #285): the picker's twin of a file
  * drop. Picked files become quoted path chips at the caret through the
- * desktop bridge; the browser build explains instead. Same linkedom
+ * desktop bridge; without it (phone WebView / browser) the bytes are
+ * uploaded and the returned path is inserted. Same linkedom
  * shims as file-path-drop-zone.test.tsx (no native Selection there).
  */
 import React, { act } from "react";
@@ -174,9 +175,9 @@ describe("composer attach button", () => {
 		assert.deepEqual(result, { paths: ["/notes/a.pdf"], skipped: 2 });
 	});
 
-	it("server render is the browser case: a disabled-looking paperclip between the input and Send", () => {
+	it("server render is the browser case: an enabled paperclip between the input and Send", () => {
 		const html = renderToStaticMarkup(<Composer busy={false} value="" onChange={() => {}} onSend={() => {}} onStop={() => {}} canSend={false} />);
-		assert.match(html, /aria-label="Attach files"[^>]*aria-disabled="true"|aria-disabled="true"[^>]*aria-label="Attach files"/);
+		assert.match(html, /aria-label="Attach files"[^>]*aria-disabled="false"|aria-disabled="false"[^>]*aria-label="Attach files"/);
 		const editor = html.indexOf("data-file-path-input");
 		const attach = html.indexOf('data-testid="attach-files"');
 		const send = html.indexOf('aria-label="Send"');
@@ -287,12 +288,25 @@ describe("composer attach button", () => {
 		assert.equal(f.sends, 0);
 	});
 
-	it("browser: the button stays inert and the picker never opens", async () => {
+	it("browser: the paperclip opens the picker and uploads the bytes, inserting the returned path", async () => {
 		const f = await fixture({ desktop: false });
-		assert.equal(f.button.getAttribute("aria-disabled"), "true");
+		assert.equal(f.button.getAttribute("aria-disabled"), "false");
+		f.caret(4);
 		await act(async () => { f.button.click(); });
-		assert.equal(f.pickerClicks, 0);
-		await f.pick([f.file("a.pdf", "/a.pdf")]);
-		assert.equal(f.value, "readthis");
+		assert.equal(f.pickerClicks, 1);
+		const originalFetch = globalThis.fetch;
+		const calls: string[] = [];
+		globalThis.fetch = (async (input: RequestInfo | URL) => {
+			calls.push(String(input));
+			return Response.json({ files: [{ path: "/data/uploads/a.pdf" }] });
+		}) as typeof fetch;
+		try {
+			await f.pick([new File(["pdf bytes"], "a.pdf")]);
+			await act(async () => {});
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+		assert.equal(calls[0], "/api/uploads");
+		assert.equal(f.value, "read `/data/uploads/a.pdf` this");
 	});
 });

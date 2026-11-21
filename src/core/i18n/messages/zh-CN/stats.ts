@@ -16,4 +16,14 @@ export const stats = {
 	unpricedTurns: "未计价的轮次",
 	turns: "轮次",
 	steps: "{count} 步",
+	planUsage: {
+		title: "套餐用量",
+		fiveHour: "5 小时用量",
+		weekly: "7 天用量",
+		remaining: "剩余 {percent}%",
+		resetsAt: "{time} 重置",
+		updatedAt: "更新于 {time}",
+		refreshing: "正在刷新…",
+		refreshFailed: "刷新失败，展示上次结果",
+	},
 } satisfies Translated<typeof EN_STATS>;
