@@ -21,7 +21,7 @@ const SPLIT_QUERY = "(pointer: coarse) and (min-width: 640px) and (min-height: 5
 const COARSE_QUERY = "(pointer: coarse)";
 
 function query(search: string, cache: { list: MediaQueryList | null }): MediaQueryList | null {
-	if (typeof window === "undefined") return null;
+	if (typeof window === "undefined" || typeof window.matchMedia !== "function") return null;
 	cache.list ??= window.matchMedia(search);
 	return cache.list;
 }
