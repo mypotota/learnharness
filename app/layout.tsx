@@ -11,7 +11,7 @@ import { I18nProvider } from "@/components/i18n/i18n-provider";
 import UpdateBanner from "@/components/update-banner";
 import { SafeAreaSync } from "@/components/safe-area";
 import { PluginsProvider } from "@/components/plugins";
-import { readLocaleBoot, readThemeBoot } from "@/src/server";
+import { readLocaleBoot, readThemeBoot, startAutoSyncLoop } from "@/src/server";
 
 // Chrome = JetBrains Mono, teaching prose = Source Sans 3, titles = CMU
 // Serif (the bundled lh-cmu @font-face in globals.css — no CDN).
@@ -29,6 +29,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 	// record and the theme files are per-machine disk state — without it a
 	// prerendered route (settings) would bake the BUILD machine's record.
 	await connection();
+	// The automatic WebDAV check (webdav-sync wave): idempotent, and started
+	// here rather than in instrumentation.ts — an instrumentation import makes
+	// the tracer bundle the live data/ tree into the standalone server.
+	startAutoSyncLoop();
 	const { appearance, theme, vars } = readThemeBoot();
 	// The language for the FIRST PAINT: the record's explicit choice, else
 	// the request's language, else English (i18n wave, 2026-11-19).

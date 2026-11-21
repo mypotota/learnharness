@@ -86,7 +86,7 @@ export function computeTreeHash(files: readonly SyncFileEntry[]): string {
 export function projectedSettingsBytes(): Buffer | null {
 	let raw: string;
 	try {
-		raw = fs.readFileSync(path.join(PATHS.data, SYNC_SETTINGS_FILE), "utf8");
+		raw = fs.readFileSync(path.join(/* turbopackIgnore: true */ PATHS.data, SYNC_SETTINGS_FILE), "utf8");
 	} catch {
 		return null;
 	}
@@ -127,9 +127,9 @@ function collectFiles(absDir: string, relDir: string, out: Array<{ rel: string; 
 function listedSources(): Array<{ rel: string; abs: string; size: number; mtimeMs: number }> {
 	const out: Array<{ rel: string; abs: string; size: number; mtimeMs: number }> = [];
 	for (const root of SYNC_DIR_ROOTS) {
-		collectFiles(path.join(PATHS.data, root), root, out);
+		collectFiles(path.join(/* turbopackIgnore: true */ PATHS.data, root), root, out);
 	}
-	const pluginsDir = path.join(PATHS.data, "plugins");
+	const pluginsDir = path.join(/* turbopackIgnore: true */ PATHS.data, "plugins");
 	let pluginIds: fs.Dirent[] = [];
 	try {
 		pluginIds = fs.readdirSync(pluginsDir, { withFileTypes: true });
@@ -139,9 +139,9 @@ function listedSources(): Array<{ rel: string; abs: string; size: number; mtimeM
 	for (const entry of pluginIds) {
 		if (!entry.isDirectory()) continue;
 		if (!/^[A-Za-z0-9._-]+$/.test(entry.name) || entry.name === ".") continue;
-		collectFiles(path.join(pluginsDir, entry.name, "data"), `plugins/${entry.name}/data`, out);
+		collectFiles(path.join(/* turbopackIgnore: true */ pluginsDir, entry.name, "data"), `plugins/${entry.name}/data`, out);
 	}
-	const settingsAbs = path.join(PATHS.data, SYNC_SETTINGS_FILE);
+	const settingsAbs = path.join(/* turbopackIgnore: true */ PATHS.data, SYNC_SETTINGS_FILE);
 	try {
 		const stat = fs.statSync(settingsAbs);
 		if (stat.isFile()) out.push({ rel: SYNC_SETTINGS_FILE, abs: settingsAbs, size: stat.size, mtimeMs: stat.mtimeMs });
