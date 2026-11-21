@@ -95,7 +95,7 @@ export function StatsBar({
 		}
 		const place = () => {
 			const el = barRef.current;
-			if (!el || !window.matchMedia("(max-width: 639px)").matches) {
+			if (!el || typeof window.matchMedia !== "function" || !window.matchMedia("(max-width: 639px)").matches) {
 				setPanelLeft(null);
 				return;
 			}

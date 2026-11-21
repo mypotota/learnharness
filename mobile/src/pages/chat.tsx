@@ -91,7 +91,6 @@ export function ChatPage({ sessionId }: { sessionId: string }) {
 			return;
 		}
 		if (session.messages.length > 0 && !session.messages.some((message) => message.role === "assistant")) void run();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [session?.id]);
 
 	if (!session) {

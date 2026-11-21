@@ -25,7 +25,7 @@ for (const model of CLAUDE_CODE_MODELS) test(`${model.id}: token usage is retain
 	assert.equal(jobCost({ usage: accumulateJobUsage(undefined, id, step) }), null);
 	const html = renderToStaticMarkup(<StatsBar turns={[turn]} pricing={pricing} />);
 	assert(!html.includes("$0"));
-	assert.match(html, /data-testid="stats-cost">CLI<\/span>/);
+	assert.match(html, /data-testid="stats-cost"[^>]*>CLI<\/span>/);
 	const summary = graphCostSummary({ chats: [{ title: "CLI fixture", extractions: [{ startedAt: 1, at: turn.at, durationMs: 1,
 		stages: { extractor: { model: id, steps: [step] }, auditor: { model: id, steps: [step] } },
 	}] }], sources: [] }, callCost);
@@ -38,10 +38,10 @@ test("mixed session totals retain known API dollars and subscription labels alon
 	const api = { ...cli, id: "api", messageId: "api", model: "openai:fixture" };
 	const pricing = { cost: 0.12, unpriced: 1, turnCosts: { cli: null, api: 0.12 } };
 	const html = renderToStaticMarkup(<StatsBar turns={[api, cli]} pricing={pricing} />);
-	assert.match(html, /data-testid="stats-cost">\$0\.1200 \+ CLI<\/span>/);
+	assert.match(html, /data-testid="stats-cost"[^>]*>\$0\.1200 \+ CLI<\/span>/);
 	const subscription = { ...cli, id: "plan", messageId: "plan", model: "chatgpt:fixture" };
 	const mixed = renderToStaticMarkup(<StatsBar turns={[api, cli, subscription]} pricing={{ ...pricing, subscription: 1, subscriptionProviders: ["ChatGPT"] }} />);
-	assert.match(mixed, /data-testid="stats-cost">\$0\.1200 \+ ChatGPT \+ CLI<\/span>/);
+	assert.match(mixed, /data-testid="stats-cost"[^>]*>\$0\.1200 \+ ChatGPT \+ CLI<\/span>/);
 	assert.equal(callCost(step, cli.model), null, "CLI stays unpriced in accounting");
 });
 

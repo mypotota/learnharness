@@ -1,6 +1,8 @@
 {
 	"version": 1,
-	"pending": [],
+	"pending": [
+		"app/api/chats/[id]/notice/route.ts::AI 在等你回答"
+	],
 	"exempt": [
 		"app/layout.tsx::A teacher agent with a memory — sessions, quizzes, and a knowledge graph of what you know.",
 		"app/layout.tsx::Learning Harness",

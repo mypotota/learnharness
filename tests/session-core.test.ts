@@ -1006,7 +1006,10 @@ describe("answer submission recovery", () => {
 		const saved = JSON.parse(JSON.stringify([question, newAnswerResult("q1", "quiz", answer)])) as LhMessage[];
 		const m = model({ initialMessages: [question], fetch: async (url) => {
 			if (String(url) === "/api/chat") { posts++; return Response.json({ ok: true }); }
-			if (++reads === 1) throw new TypeError("record read failed");
+			// The post-ack reattach now retries one transport failure (phone
+			// unfreeze race), so BOTH attempts of the first submit must fail
+			// for the record to count as unreachable.
+			if (++reads <= 2) throw new TypeError("record read failed");
 			return Response.json({ messages: saved, turnInFlight: false });
 		} });
 		await m.submitAnswer("quiz", "q1", answer);

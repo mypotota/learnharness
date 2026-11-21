@@ -249,9 +249,9 @@ async function activate(info: PluginInfo): Promise<void> {
 	const style = stylesheet(info);
 	try {
 		if (!assetOrigin) throw new Error("Plugin assets are not available");
-		const module = (await import(/* @vite-ignore */ pluginModuleUrl(info))) as PluginFrontendModule;
-		if (typeof module.activate !== "function") throw new Error("Plugin frontend must export activate(context)");
-		const cleanup = await module.activate(context);
+		const frontend = (await import(/* @vite-ignore */ pluginModuleUrl(info))) as PluginFrontendModule;
+		if (typeof frontend.activate !== "function") throw new Error("Plugin frontend must export activate(context)");
+		const cleanup = await frontend.activate(context);
 		if (typeof cleanup === "function") context.cleanup(cleanup);
 		activations.set(info.id, activation);
 	} catch (error) {

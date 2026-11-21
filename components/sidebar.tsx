@@ -189,6 +189,12 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 	// the sidebar never slides in from zero on load (it is simply there).
 	useEffect(() => {
 		if (!mounted) return;
+		// Test renderers (and any non-browser runtime) have no rAF: animate
+		// immediately instead of crashing the effect.
+		if (typeof requestAnimationFrame !== "function") {
+			setAnimate(true);
+			return;
+		}
 		const id = requestAnimationFrame(() => setAnimate(true));
 		return () => cancelAnimationFrame(id);
 	}, [mounted]);
