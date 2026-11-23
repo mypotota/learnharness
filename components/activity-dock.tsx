@@ -444,7 +444,7 @@ function ActivityBlobRow({
 		<div
 			data-testid={`activity-blob-${blob.process}`}
 			data-activity-id={blob.id}
-			className="relative rounded-lg px-2 py-1.5 text-xs transition-colors hover:bg-accent"
+			className="rounded-lg px-2 py-1.5 text-xs transition-colors hover:bg-accent"
 		>
 			{/* The face is its own positioning context: the END control used to
 			    centre on the whole row, so with the detail open it floated in
@@ -458,7 +458,9 @@ function ActivityBlobRow({
 				>
 					<Icon className="size-3.5 shrink-0 text-muted-foreground" />
 					<span className="min-w-0 flex-1">
-						<span className="block truncate font-medium text-card-foreground">{blob.title}</span>
+						<span className="block truncate font-medium text-card-foreground" title={blob.title}>
+							{blob.title}
+						</span>
 						{blob.activity ? (
 							<span className="block truncate text-muted-foreground" title={blob.activity}>
 								{blob.activity}
@@ -482,7 +484,7 @@ function ActivityBlobRow({
 					disabled={abortState !== undefined}
 					title={abortState === "failed" ? t("activity.abortFailed") : t("activity.endProcess")}
 					aria-label={t("activity.endAria", { label, title: blob.title })}
-					className="absolute right-0 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+					className="absolute right-1 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
 				>
 					<SquareIcon className="size-3" />
 				</button>
@@ -501,9 +503,6 @@ function ActivityBlobRow({
 						</span>
 					</div>
 					<div className="flex flex-col gap-1 text-muted-foreground">
-						<div className="truncate text-card-foreground" title={blob.title}>
-							{blob.title}
-						</div>
 						{blob.activity && <div className="break-words">{blob.activity}</div>}
 						<div className="flex justify-between gap-2">
 							<span className="shrink-0">{t("activity.detailCost")}</span>

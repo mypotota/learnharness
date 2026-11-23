@@ -18,6 +18,8 @@ export const common = {
 	copy: "Copy",
 	copied: "Copied",
 	loading: "Loading…",
+	saving: "Saving…",
+	deleting: "Deleting…",
 	retry: "Retry",
 	error: "Error",
 	search: "Search",
@@ -34,4 +36,5 @@ export const common = {
 	all: "All",
 	unknown: "Unknown",
 	closeDialog: "Close dialog",
+	closeAnnouncement: "Close announcement",
 } as const;

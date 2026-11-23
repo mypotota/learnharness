@@ -63,6 +63,7 @@ export interface ServerEvents {
         chatId: string;
     };
     "plugins-changed": Record<string, never>;
+    "sync-changed": Record<string, never>;
     "plugin-message": {
         pluginId: string;
         topic: string;
@@ -91,6 +92,7 @@ export interface ServerEvents {
 - ["side-chats-changed"](#serverevents-side-chats-changed)
 - ["side-chats-changed".chatId](#serverevents-side-chats-changedchatid)
 - ["plugins-changed"](#serverevents-plugins-changed)
+- ["sync-changed"](#serverevents-sync-changed)
 - ["plugin-message"](#serverevents-plugin-message)
 - ["plugin-message".pluginId](#serverevents-plugin-messagepluginid)
 - ["plugin-message".topic](#serverevents-plugin-messagetopic)
@@ -245,6 +247,15 @@ Plugin availability/lifecycle changed; refetch installed packages.
 
 ```ts
 "plugins-changed": Record<string, never>;
+```
+
+### ServerEvents "sync-changed"
+
+WebDAV sync moved data (auto pull applied, manual push/pull settled).
+Open views refetch their records; the Settings card refetches status.
+
+```ts
+"sync-changed": Record<string, never>;
 ```
 
 ### ServerEvents "plugin-message"

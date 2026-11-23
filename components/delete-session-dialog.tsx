@@ -2,14 +2,54 @@
 
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import { HostDialog } from "@/components/host-dialog";
-import type { ChatDeleteMode, ChatListItem } from "@/src/core";
+import type { ChatDeleteMode, ChatListItem, FolderDeletionScope } from "@/src/core";
 import { TRACES_COPY } from "@/src/core";
-import { useT } from "@/components/i18n/i18n-provider";
+import { englishT, useT } from "@/components/i18n/i18n-provider";
 import { apiErrorMessage } from "@/components/i18n/api-error";
 
 /** The graph-traces checkbox copy (owner, 2026-09-24 flow rework) now
  *  lives in core/dialog-copy.ts — re-exported here for the render pins. */
 export { TRACES_COPY };
+
+export interface DeleteDialogCopy {
+	label: string;
+	testid: string;
+	heading: string;
+	body: string;
+	traces: { title: string; body: string };
+}
+
+export function sessionDeleteCopy(t: typeof englishT = englishT): DeleteDialogCopy {
+	return {
+		label: t("dialog.deleteSessionAria"),
+		testid: "delete-session-dialog",
+		heading: t("dialog.deleteSessionTitle"),
+		body: t("dialog.sessionPermanence"),
+		traces: { title: t("dialog.tracesTitle"), body: t("dialog.tracesBody") },
+	};
+}
+
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** The folder Delete's wording (owner, 2026-11-18): the session dialog's
+ *  shape, plural, saying what goes and where notes move. */
+export function folderDeleteCopy(input: { sessions: number; subfolders: number; notes: number; parentName: string | null }, t: typeof englishT = englishT): DeleteDialogCopy {
+	const what = [count(input.sessions, t("dialog.folderSessionOne"), t("dialog.folderSessionMany")), ...(input.subfolders ? [count(input.subfolders, t("dialog.folderSubfolderOne"), t("dialog.folderSubfolderMany"))] : [])].join(t("dialog.folderAnd"));
+	const target = input.parentName === null ? t("dialog.folderTopLevel") : t("dialog.folderQuotedName", { name: input.parentName });
+	const notes = input.notes
+		? ` ${t(input.notes === 1 ? "dialog.folderNotesMoveOne" : "dialog.folderNotesMoveMany", { count: input.notes, target })}`
+		: "";
+	return {
+		label: t("dialog.folderDeleteLabel"),
+		testid: "delete-folder-dialog",
+		heading: t("dialog.folderDeleteTitle"),
+		body: t("dialog.folderDeleteBody", { what, notes }),
+		traces: {
+			title: t("dialog.folderTracesTitle"),
+			body: t("dialog.folderTracesBody"),
+		},
+	};
+}
 
 /**
  * Session deletion (wave 6 chunk A; owner flow rework 2026-09-24) — THE
@@ -118,6 +158,7 @@ export function DeleteSessionBody({
 	onClose,
 	onRun,
 	renderFrame,
+	copy,
 }: {
 	chat: Pick<ChatListItem, "id" | "title">;
 	/** The graph-traces checkbox — unchecked by default (preserve-graph). */
@@ -128,18 +169,21 @@ export function DeleteSessionBody({
 	onClose: () => void;
 	onRun: () => void;
 	renderFrame?: (frame: ReactElement<{ children: ReactNode }>) => ReactNode;
+	/** The wording; the folder Delete reuses this exact surface. */
+	copy?: DeleteDialogCopy;
 }) {
 	const t = useT();
+	const text = copy ?? sessionDeleteCopy(t);
 	const frame = (
 		<div
 			role="dialog"
 			aria-modal="true"
-			aria-label={t("dialog.deleteSessionAria")}
-			data-testid="delete-session-dialog"
+			aria-label={text.label}
+			data-testid={text.testid}
 			onClick={(e) => e.stopPropagation()}
 			className="w-[32rem] max-w-[calc(100vw-2rem)] rounded-xl border bg-card p-5 shadow-xl"
 		>
-			<h2 className="text-sm font-semibold text-destructive">{t("dialog.deleteSessionTitle")}</h2>
+			<h2 className="text-sm font-semibold text-destructive">{text.heading}</h2>
 			{/* The session name below the title in JetBrains Mono (owner,
 			    2026-09-24): no code-block chrome — the font already says
 			    code. Owner, 2026-10-13 polish: normal text-sm size (was
@@ -150,9 +194,7 @@ export function DeleteSessionBody({
 					{chat.title}
 				</code>
 			</div>
-			<p className="mt-2 text-sm text-muted-foreground">
-				{t("dialog.sessionPermanence")}
-			</p>
+			<p className="mt-2 text-sm text-muted-foreground">{text.body}</p>
 			<label
 				data-testid={TRACES_COPY.testid}
 				className="mt-4 flex cursor-pointer items-start gap-2.5 rounded-lg border border-border/60 px-4 py-3"
@@ -166,8 +208,8 @@ export function DeleteSessionBody({
 					className="mt-0.5 size-4 shrink-0 accent-primary"
 				/>
 				<span className="min-w-0">
-					<span className="block text-sm text-foreground">{t("dialog.tracesTitle")}</span>
-					<span className="mt-1 block text-xs text-muted-foreground">{t("dialog.tracesBody")}</span>
+					<span className="block text-sm text-foreground">{text.traces.title}</span>
+					<span className="mt-1 block text-xs text-muted-foreground">{text.traces.body}</span>
 				</span>
 			</label>
 			{failure && (
@@ -214,4 +256,73 @@ export function DeleteSessionBody({
 		</div>
 	);
 	return renderFrame ? renderFrame(frame) : frame;
+}
+/** The sidebar's folder Delete, on the session dialog's surface: the same
+ *  unchecked traces box, the same retryable-failure line. */
+export function DeleteFolderDialog({
+	folder,
+	onClose,
+	onDeleted,
+	onStale,
+}: {
+	folder: { id: string; name: string; copy: DeleteDialogCopy; scope: FolderDeletionScope } | null;
+	onStale: (message: string) => void;
+	onClose: () => void;
+	onDeleted: (result: { deletedChatIds: string[]; graphRevision: number }) => void;
+}) {
+	const t = useT();
+	const [traces, setTraces] = useState(false);
+	const [busy, setBusy] = useState(false);
+	const [failure, setFailure] = useState<{ code: string; error: string } | null>(null);
+	useEffect(() => {
+		if (!folder) {
+			setTraces(false);
+			setBusy(false);
+			setFailure(null);
+		}
+	}, [folder]);
+
+	const run = async () => {
+		if (!folder || busy) return;
+		const mode: ChatDeleteMode = traces ? "delete-nodes" : "preserve-graph";
+		setBusy(true);
+		setFailure(null);
+		try {
+			const res = await fetch(`/api/graph/sources/folders/${encodeURIComponent(folder.id)}?mode=${mode}`, {
+				method: "DELETE",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(folder.scope),
+			});
+			const body = (await res.json()) as { error?: string; code?: string; graphRevision?: number; deletedChatIds?: string[] };
+			if (body.code === "folder_scope_changed" || body.code === "not_found") {
+				onStale(body.error ?? t("dialog.folderChanged"));
+				return;
+			}
+			if (!res.ok) {
+				setFailure({ code: body.code ?? "error", error: body.error ?? t("dialog.deleteFailedStatus", { status: res.status }) });
+				setBusy(false);
+				return;
+			}
+			onDeleted({ deletedChatIds: body.deletedChatIds ?? [], graphRevision: body.graphRevision ?? 0 });
+		} catch {
+			setFailure({ code: "network", error: t("dialog.deleteFailedNetwork") });
+			setBusy(false);
+		}
+	};
+
+	if (!folder) return null;
+	return <DeleteSessionBody
+				chat={{ id: folder.id, title: folder.name }}
+				copy={folder.copy}
+				traces={traces}
+				busy={busy}
+				failure={failure}
+				onTraces={(next) => setTraces(next)}
+				onClose={onClose}
+				onRun={() => void run()}
+				renderFrame={(frame) => <HostDialog open frame={frame} onClose={() => {
+					if (busy) return "blocked";
+					onClose(); return "closed";
+				}} backdropProps={{ className: "fixed inset-0 z-50 flex items-center justify-center bg-background/80" }}>{frame.props.children}</HostDialog>}
+			/>;
 }

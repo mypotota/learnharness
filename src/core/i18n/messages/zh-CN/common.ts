@@ -19,6 +19,8 @@ export const common = {
 	copy: "复制",
 	copied: "已复制",
 	loading: "加载中…",
+	saving: "正在保存…",
+	deleting: "正在删除…",
 	retry: "重试",
 	error: "错误",
 	search: "搜索",
@@ -35,4 +37,5 @@ export const common = {
 	all: "全部",
 	unknown: "未知",
 	closeDialog: "关闭对话框",
+	closeAnnouncement: "关闭公告",
 } satisfies Translated<typeof EN_COMMON>;

@@ -14,6 +14,7 @@ export const question = {
 	kindRecall: "回忆",
 	kindExplain: "解释",
 	kindQuestion: "提问",
+	selectAllThatApply: " · 可多选",
 	kindPredict: "预测",
 	verdictCorrect: "正确",
 	verdictIncorrect: "错误",

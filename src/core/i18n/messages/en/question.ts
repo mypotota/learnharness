@@ -15,6 +15,7 @@ export const question = {
 	kindRecall: "Recall",
 	kindExplain: "Explain",
 	kindQuestion: "Question",
+	selectAllThatApply: " · select all that apply",
 	kindPredict: "Prediction",
 	verdictCorrect: "correct",
 	verdictIncorrect: "incorrect",

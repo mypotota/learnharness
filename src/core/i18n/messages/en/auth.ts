@@ -19,6 +19,7 @@ export const auth = {
 	qwenTokenPlan: "Qwen Token Plan",
 	qwenTokenPlanCn: "Qwen Token Plan CN",
 	qwenTokenPlanIndividual: "Qwen Token Plan Individual",
+	qwenTokenPlanIndividualCn: "Qwen Token Plan Individual CN",
 	xiaomiTokenPlanAms: "Xiaomi Token Plan AMS",
 	xiaomiTokenPlanCn: "Xiaomi Token Plan CN",
 	xiaomiTokenPlanSgp: "Xiaomi Token Plan SGP",
