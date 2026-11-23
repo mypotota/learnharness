@@ -112,7 +112,9 @@ it("edits one segment with recoverable Settings writes and refreshes without Pro
 		await click(document.body, "Open Settings");
 		assert.match(row().textContent ?? "", /^Doctrine.*In use: Default/);
 		assert.equal(button(row(), "View default").dataset.variant, "ghost");
-		assert.ok(row().querySelector<HTMLButtonElement>('[role="switch"]')?.disabled);
+		// The switch is reachable without a pre-existing override: turning it on
+		// materializes one from the shipped text (no hover hints on touch).
+		assert.ok(!row().querySelector<HTMLButtonElement>('[role="switch"]')?.disabled);
 		await click(row(), "View default");
 		assert.equal(field().value, sourceText);
 		assert.ok(field().hasAttribute("readonly"));

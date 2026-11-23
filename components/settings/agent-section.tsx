@@ -523,6 +523,29 @@ export function AgentSection({
 		setSwitchError(null);
 		let saved = false;
 		try {
+			if (on) {
+				// Turning the switch on materializes the override from the shipped
+				// text when none exists. Touch surfaces have no hover tooltip for
+				// "add an override first", so requiring that separate step read as
+				// a broken switch on phones (one tap must be enough everywhere).
+				const segments = prompts ? [...prompts.teacher, ...prompts.prober, ...prompts.practice] : [];
+				const segment = segments.find(candidate => candidate.path === path);
+				if (!segment) {
+					setSwitchError(path);
+					return;
+				}
+				if (segment.overrideText === null) {
+					const res = await fetch(`/api/settings/prompts/${path}`, {
+						method: "PUT",
+						headers: { "content-type": "application/json" },
+						body: JSON.stringify({ text: segment.sourceText }),
+					});
+					if (!res.ok) {
+						setSwitchError(path);
+						return;
+					}
+				}
+			}
 			saved = await onSectionChange(composePromptSwitch(latestAgent.current, path, on), stored => (stored.prompts?.[path] === true) === on);
 		} catch {
 			// A rejected write is handled below just like a negative acknowledgement.

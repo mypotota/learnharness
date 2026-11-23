@@ -63,7 +63,7 @@ import { useT } from "@/components/i18n/i18n-provider";
 import { apiErrorMessage } from "@/components/i18n/api-error";
 import { ChatGPTUIProvider } from "./chatgpt-connection.tsx";
 import { NativeSubscriptionUIProvider } from "./subscription-connections.tsx";
-import { useCompact } from "@/components/use-compact";
+import { useCompact, useSplitShell } from "@/components/use-compact";
 import { registerNativeBack } from "@/components/native-back";
 
 /** Owner (2026-09-20): hints earn their place — mechanics-explaining
@@ -213,8 +213,13 @@ export function SettingsDialogBody({
 }) {
 	const t = useT();
 	const compact = useCompact();
+	// Touch devices wide enough for the split app shell (unfolded foldables,
+	// tablets) keep the section list visible beside the content instead of
+	// drilling list → detail → back.
+	const split = useSplitShell();
 	// Compact-only: the settings open as a full-screen list of sections;
 	// choosing one swaps to that section with a back affordance.
+	const masterDetail = compact && !split;
 	const [mobileDetail, setMobileDetail] = useState(initialDetail);
 	const { onAppearanceChange } = useAppearance();
 	const inheritedWriteOrder = useContext(WriteOrderContext);
@@ -268,22 +273,22 @@ export function SettingsDialogBody({
 		setActive(initialSection);
 	}, [initialSection, navigationRequest]);
 
-	// Compact: a deep link opens its section; a plain open shows the list.
+	// Master/detail: a deep link opens its section; a plain open shows the list.
 	useEffect(() => {
-		if (compact) setMobileDetail(initialDetail);
-	}, [compact, initialDetail, navigationRequest]);
+		if (masterDetail) setMobileDetail(initialDetail);
+	}, [masterDetail, initialDetail, navigationRequest]);
 
 	// Android back: detail → list → dialog closed, in that order.
 	useEffect(() => {
 		return registerNativeBack(() => {
-			if (compact && mobileDetail) {
+			if (masterDetail && mobileDetail) {
 				setMobileDetail(false);
 				return true;
 			}
 			onClose();
 			return true;
 		});
-	}, [compact, mobileDetail, onClose]);
+	}, [masterDetail, mobileDetail, onClose]);
 
 	const enabledPlugins = snapshot.plugins.filter(plugin => plugin.info.enabled);
 	const activePluginId = active.startsWith("plugin:") ? active.slice("plugin:".length) : null;
@@ -438,7 +443,7 @@ export function SettingsDialogBody({
 		>
 			{/* Header — the app's quiet CMU title language. */}
 			<header className="flex h-15 shrink-0 items-center gap-3 border-b border-border px-5 max-md:h-14 max-md:px-3">
-				{compact && mobileDetail && (
+				{masterDetail && mobileDetail && (
 					<button
 						type="button"
 						aria-label={t("common.back")}
@@ -450,7 +455,7 @@ export function SettingsDialogBody({
 					</button>
 				)}
 				<h2 className="min-w-0 truncate font-title text-2xl tracking-tight max-md:text-lg">
-					{compact && mobileDetail
+					{masterDetail && mobileDetail
 						? navSections.find((section) => section.id === selected)?.label ?? t("settings.title")
 						: t("settings.title")}
 				</h2>
@@ -483,11 +488,11 @@ export function SettingsDialogBody({
 			<div className="flex min-h-0 flex-1">
 				{/* Left nav — mono labels and theme-inherited decorative icons,
 					    active = bg-accent. */}
-				{(!compact || !mobileDetail) && <nav
+				{(!masterDetail || !mobileDetail) && <nav
 					aria-label={t("settings.dialog.sectionsLabel")}
 					data-testid="settings-nav"
 					className={
-						compact
+						masterDetail
 							? "flex min-h-0 w-full flex-col gap-0.5 overflow-y-auto p-3"
 							: "flex min-h-0 w-48 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border p-2"
 					}
@@ -500,7 +505,7 @@ export function SettingsDialogBody({
 								data-testid={`settings-nav-${s.id}`}
 								aria-current={selected === s.id}
 								className={`flex w-full items-center gap-2.5 break-words rounded-sm px-3 text-left font-ui transition-colors ${
-									compact ? "py-3 text-base" : "py-1.5 text-sm"
+									masterDetail ? "py-3 text-base" : split ? "py-2.5 text-sm" : "py-1.5 text-sm"
 								} ${
 									selected === s.id
 										? "bg-accent text-foreground"
@@ -508,13 +513,15 @@ export function SettingsDialogBody({
 								}`}
 								onClick={() => {
 									setActive(s.id);
-									if (compact) {
+									if (masterDetail) {
 										setMobileDetail(true);
+										contentRef.current?.scrollTo({ top: 0 });
+									} else if (split) {
 										contentRef.current?.scrollTo({ top: 0 });
 									}
 								}}
 							>
-								{s.icon && <s.icon aria-hidden="true" focusable="false" className={compact ? "size-4 shrink-0" : "size-3.5 shrink-0"} />}
+								{s.icon && <s.icon aria-hidden="true" focusable="false" className={masterDetail || split ? "size-4 shrink-0" : "size-3.5 shrink-0"} />}
 								<span className="min-w-0">{s.label}</span>
 							</button>
 							{s.id === "plugins" && <hr className="my-2 border-border" />}
@@ -528,7 +535,7 @@ export function SettingsDialogBody({
 				    open/close, the count keeps overlap honest). The lock
 				    intercepts wheel/touch instead of hiding the scrollbar —
 				    nothing may shift when the lock engages. */}
-				{(!compact || mobileDetail) && <div
+				{(!masterDetail || mobileDetail) && <div
 					ref={contentRef}
 					className="min-w-0 flex-1 overflow-y-auto"
 					data-testid="settings-content"

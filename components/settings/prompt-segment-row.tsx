@@ -39,8 +39,8 @@ export function PromptSegmentRow({ path, usageHint, hasOverride, enabled, busy, 
 				</Button>
 				<div className="flex items-center gap-2 sm:ml-2">
 					<span className="w-[20ch] text-xs text-muted-foreground">{t("settings.agent.inUse")} <span className="text-foreground">{enabled ? t("settings.agent.yourVersion") : t("settings.agent.defaultVersion")}</span></span>
-					<span className={cn("flex", !hasOverride && "opacity-40")}>
-						<Toggle label={t("settings.agent.useOverrideFor", { name })} title={t("settings.agent.useOverrideHint")} checked={enabled} disabled={!hasOverride || busy || switching} onChange={onToggle} />
+					<span className="flex">
+						<Toggle label={t("settings.agent.useOverrideFor", { name })} title={t("settings.agent.useOverrideHint")} checked={enabled} disabled={busy || switching} onChange={onToggle} />
 					</span>
 				</div>
 			</div>
