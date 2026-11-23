@@ -167,6 +167,11 @@ nsis:
   perMachine: false
 linux:
   icon: build/icon.png
+  # The WM/taskbar icon comes from the window, not the .desktop file — ship
+  # the PNG next to app.asar so electron/main.cjs can set it (see WINDOW_ICON).
+  extraResources:
+    - from: build/icon.png
+      to: icon.png
   target:
     - target: AppImage
       arch:

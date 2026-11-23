@@ -45,6 +45,16 @@ const SIDEBAR_AUTOCLOSE = 928;
 
 const PRODUCT_NAME = "LearnHarness";
 
+// Window icon for the WM/taskbar. The .deb ships a launcher icon, but the
+// window itself still shows Electron's default unless BrowserWindow gets one
+// explicitly; macOS takes the icon from the bundle, so this is Linux/Windows.
+const WINDOW_ICON = (() => {
+	const file = app.isPackaged
+		? path.join(process.resourcesPath, "icon.png")
+		: path.join(__dirname, "..", "build", "icon.png");
+	return fs.existsSync(file) ? file : undefined;
+})();
+
 // APP NAME → userData (owner, 2026-10-10): the Application Support dir is
 // exactly "LearnHarness" in dev AND packaged. Packaged Electron would
 // otherwise derive it from package.json "name" (now lowercase
@@ -322,6 +332,7 @@ function createWindow(url, beforeLoad) {
 		width: 1440,
 		height: 900,
 		title: PRODUCT_NAME,
+		...(WINDOW_ICON ? { icon: WINDOW_ICON } : {}),
 		// Merged chrome (owner, 2026-09-17): the system title bar is gone;
 		// the app's own 60px header bands ARE the title bar. The traffic
 		// lights float over the sidebar's LH wordmark band, vertically
