@@ -12,7 +12,14 @@ export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
 export const Conversation = ({ className, ...props }: ConversationProps) => (
   <StickToBottom
-    className={cn("relative flex-1 overflow-y-hidden", className)}
+    /* overflow-x-clip (owner, 2026-11-23): overflow-y-hidden alone computes
+     * overflow-x to auto, so one hidden-but-mounted child that reaches past
+     * the column — the plan marginalia's off-flank anchor, which sits at
+     * `left: calc(50% + dock/2 + gap)` even while faded out on a phone —
+     * turned the whole reading column into a horizontally scrollable box
+     * (the bottom scrollbar the owner rejected). Clip X: the reading surface
+     * never scrolls sideways; inner scrollers (code blocks) are untouched. */
+    className={cn("relative flex-1 overflow-y-hidden overflow-x-clip", className)}
     initial="smooth"
     resize="smooth"
     role="log"

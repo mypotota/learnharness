@@ -379,6 +379,35 @@ body {
 	margin: 0;
 }
 
+/* Phone reading surface (owner, 2026-11-23): the transcript NEVER scrolls
+   sideways on a phone — wide inline code and fenced code blocks WRAP instead
+   of turning the reading column into a web page. The desktop keeps the
+   sideways-scroll fallbacks above (its column is wide enough). Scoped by a
+   viewport query, matching Tailwind's max-md boundary. */
+@media (max-width: 767.98px) {
+	[data-session-surface] [data-streamdown="inline-code"],
+	[data-session-surface] .lh-nobreak {
+		display: inline;
+		max-width: none;
+		overflow: visible;
+		white-space: normal;
+		overflow-wrap: anywhere;
+	}
+	/* break-word (not anywhere): cells keep their words intact — min-content
+	   is still a whole word, so a wide table wraps its text to the column
+	   instead of squeezing "apiKey" into two lines. */
+	[data-session-surface] [data-streamdown="table"] :where(th, td) {
+		overflow-wrap: break-word;
+	}
+	[data-session-surface] [data-streamdown="code-block-body"] {
+		overflow-x: hidden;
+	}
+	[data-session-surface] [data-streamdown="code-block-body"] :where(pre, code) {
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+}
+
 /* ============================================================
  * Chrome melt (owner wave, 2026-09-19) — tables and code blocks stop
  * being boxes: blocks read as part of the message. These rules override
