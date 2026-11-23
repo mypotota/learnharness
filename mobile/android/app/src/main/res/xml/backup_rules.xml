@@ -7,8 +7,4 @@
     <include domain="file" path="data/" />
     <include domain="file" path="auth.json" />
     <include domain="file" path="chatgpt-credentials.json" />
-    <exclude domain="file" path="lh-server/" />
-    <exclude domain="file" path="logs/" />
-    <exclude domain="file" path="cache/" />
-    <exclude domain="cache" path="." />
 </full-backup-content>
