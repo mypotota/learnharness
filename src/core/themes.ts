@@ -140,7 +140,9 @@ function builtin(name: string, mode: ThemeMode, c: ThemeColors): Theme {
  *  accents; orange accent, blue/purple/aqua emphasis. Ivory: warm ivory
  *  page, terracotta accent, blue/green/clay emphasis. Pastel: a gray-cream
  *  page with soft green, purple and orange inks. NvChad Onedark: base46's
- *  onedark. */
+ *  onedark. E-ink: a reflective paper page with near-black ink, firmer gray
+ *  rules and only desaturated status inks — the monochrome preset; E-ink
+ *  Dark is the same ink language on a neutral black panel. */
 export const BUILTIN_THEMES: readonly Theme[] = [
 	{
 		id: DEFAULT_THEME_ID,
@@ -202,6 +204,16 @@ export const BUILTIN_THEMES: readonly Theme[] = [
 		background: "#1e222a", surface: "#282c34", border: "#42464e", text: "#abb2bf", textMuted: "#565c64",
 		accent: "#61afef", bold: "#c882e7", italic: "#a3b8ef", code: "#e7c787",
 		error: "#e06c75", success: "#98c379", warning: "#e7c787",
+	}),
+	builtin("E-ink", "light", {
+		background: "#f4f4f2", surface: "#ebebe8", border: "#9c9c94", text: "#1b1b16", textMuted: "#5f5f58",
+		accent: "#2f2f2a", bold: "#000000", italic: "#555550", code: "#2b2b26",
+		error: "#8c2f2f", success: "#2f6b3f", warning: "#8a6a1f",
+	}),
+	builtin("E-ink Dark", "dark", {
+		background: "#151513", surface: "#1e1e1b", border: "#6b6b63", text: "#e8e8e2", textMuted: "#a3a39a",
+		accent: "#d8d8d0", bold: "#ffffff", italic: "#c4c4bb", code: "#e0e0d6",
+		error: "#d08a8a", success: "#9cc4a4", warning: "#d4bb84",
 	}),
 ];
 
