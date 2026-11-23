@@ -1616,14 +1616,28 @@ export function GraphView({
 			    The width cap lives HERE on the absolute element (100% resolves
 			    against the full-bleed parent) — the row NEVER wraps (owner
 			    rejected the two-row fold); in narrow windows the search is
-			    the flexible element and shrinks instead. */}
-			<div className="lh-no-drag lh-wco-floating absolute right-2 top-2 z-10 flex max-w-[calc(100%-5.5rem)] flex-col items-end gap-2">
+			    the flexible element and shrinks instead.
+			    max-md:w-full (phone fix, 2026-11-23): the search's fixed
+			    w-56 made the row's min-content wider than the cap, so the
+			    row overflowed LEFT — covering the sidebar toggle and running
+			    off-screen (owner screenshot). A full-width row inside the
+			    cap lets the search actually shrink (its w-56 + min-w-0 +
+			    shrink were inert without a definite row width).
+			    --lh-home-chrome-left (owner report, 2026-11-23): the cap was
+			    a hard-coded 5.5rem — the sidebar toggle's band only. The
+			    folder filter beside it grows with the selected folder's
+			    name, so the row still painted over it. home.tsx measures
+			    the header's left cluster (toggle + filter, Electron gutter
+			    included) and publishes that live width here. */}
+			<div className="lh-no-drag lh-wco-floating absolute right-2 top-2 z-10 flex max-w-[calc(100%_-_var(--lh-home-chrome-left))] flex-col items-end gap-2">
 			{/* z-20 (2026-09-20): the row paints above the cost number below
 			    it — without this, the later-in-DOM cost control layered over
 			    the settings/coverage dropdowns (owner report), still hoverable
 			    and clickable on top of them. The row is a stacking context, so
-			    its open dropdowns cover the number; clicks land on the panel. */}
-			<div className="relative z-20 flex min-w-0 items-start gap-2">
+			    its open dropdowns cover the number; clicks land on the panel.
+			    w-full (2026-11-23): always fill the (capped) column so a
+			    shrinking search — not the fixed buttons — absorbs the loss. */}
+			<div className="relative z-20 flex w-full min-w-0 items-start gap-2">
 				{/* The actions row (empty-graph chrome wave, owner 2026-09-25):
 				    Import Notes always — the empty graph's entry point; search +
 				    settings only when nodes exist, fading in on their mount. */}

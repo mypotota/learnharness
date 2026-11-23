@@ -654,7 +654,7 @@ body {
 }
 .lh-electron .lh-wco-floating {
 	right: calc(0.5rem + var(--lh-wco-right, 0px));
-	max-width: max(0px, calc(100% - 5.5rem - var(--lh-wco-right, 0px)));
+	max-width: max(0px, calc(100% - var(--lh-home-chrome-left) - var(--lh-wco-right, 0px)));
 }
 
 /* A closed graph rail starts below the floating toggle/native lights band.
@@ -741,6 +741,11 @@ body {
 	--lh-safe-right: 0px;
 	--lh-safe-bottom: 0px;
 	--lh-safe-left: 0px;
+	/* The graph's floating controls row caps itself left of the header's
+	   left cluster (sidebar toggle + folder filter). home.tsx measures that
+	   cluster and overrides this on the page element; the fallback below is
+	   the toggle's band alone (12px padding + 36px button + 8px gap + slack). */
+	--lh-home-chrome-left: 5.5rem;
 }
 
 .lh-safe-inset {

@@ -42,9 +42,66 @@ export function Home({
 	const router = useRouter();
 	const pathname = usePathname();
 	const bodyRef = useRef<HTMLDivElement>(null);
+	const pageRef = useRef<HTMLDivElement>(null);
+	const headerRef = useRef<HTMLElement>(null);
 	const surfaceTarget = usePageSurfaceBoundary({ active: pathname === "/", viewKey: "/", bodyRef });
 	const chromeStyle = useSurfaceChromeStyle(surfaceTarget);
 	const [folderFilterSlot, setFolderFilterSlot] = useState<HTMLElement | null>(null);
+
+	/* Header-left clearance (owner report, 2026-11-23). The graph's floating
+	 * controls row reserved a hard-coded 5.5rem for the sidebar toggle, but the
+	 * folder filter next to it grows with the selected folder's name (up to
+	 * 10rem) — the row then painted OVER the filter (phone screenshot). The
+	 * width is measured, not computed: the toggle's Electron traffic-light
+	 * margin, its open/closed slot transition, and the folder name's width all
+	 * land in the rect. Published on the page element as
+	 * --lh-home-chrome-left; the graph column caps its width there. */
+	useEffect(() => {
+		const page = pageRef.current;
+		const header = headerRef.current;
+		if (!page || !header) return;
+		let frame = 0;
+		const publish = () => {
+			frame = 0;
+			const left = page.getBoundingClientRect().left;
+			let right = 0;
+			for (const el of header.querySelectorAll<HTMLElement>(".lh-no-drag")) {
+				right = Math.max(right, el.getBoundingClientRect().right - left);
+			}
+			if (right > 0) page.style.setProperty("--lh-home-chrome-left", `${Math.ceil(right) + 8}px`);
+		};
+		const schedule = () => {
+			if (frame) return;
+			if (typeof requestAnimationFrame === "function") frame = requestAnimationFrame(publish);
+			else publish();
+		};
+		const observed = new Set<Element>();
+		const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(schedule) : null;
+		const observe = () => {
+			if (!sizes) return;
+			for (const el of header.querySelectorAll(".lh-no-drag")) {
+				if (observed.has(el)) continue;
+				observed.add(el);
+				sizes.observe(el);
+			}
+		};
+		observe();
+		sizes?.observe(page);
+		const mutations = typeof MutationObserver === "function"
+			? new MutationObserver(() => {
+				observe();
+				schedule();
+			})
+			: null;
+		mutations?.observe(header, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"], characterData: true });
+		schedule();
+		return () => {
+			if (frame && typeof cancelAnimationFrame === "function") cancelAnimationFrame(frame);
+			sizes?.disconnect();
+			mutations?.disconnect();
+			page.style.removeProperty("--lh-home-chrome-left");
+		};
+	}, []);
 	const [topic, setTopic] = useState("");
 	/* The topic MIRROR ("nothing gets lost" round, 2026-10-01 — same
 	 * mechanics as the chat composer, owner's consistency ruling): a
@@ -168,7 +225,7 @@ export function Home({
 	};
 
 	return (
-		<div className="relative h-full">
+		<div ref={pageRef} className="relative h-full">
 			{/* Window-drag strip (merged chrome, owner 2026-09-17): a dedicated
 			    mask element, deliberately FIRST in the DOM. Electron's app-region
 			    mask resolves by DOM order — a no-drag element subtracts only drag
@@ -331,7 +388,7 @@ export function Home({
 			{/* Floating host chrome stays outside page-content coverage, after
 			    the region at the same owned-surface rank. The drag mask remains
 			    first so later controls retain their Electron no-drag carve-outs. */}
-			<header style={chromeStyle} className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 px-3 py-2">
+			<header ref={headerRef} style={chromeStyle} className="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 px-3 py-2">
 				{/* `contents`: the toggle's own collapse margin (w-0 -mr-3 while
 				    the sidebar is open) must act in THIS row, so the next control
 				    sits the header's top gap from the left edge. */}

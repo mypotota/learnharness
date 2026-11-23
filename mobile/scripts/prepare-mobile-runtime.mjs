@@ -49,9 +49,16 @@ const NODE_LIBS = [
 	"libicudata.so.79",
 ];
 
-/** Desktop-only traces and repo scaffolding that must not ride in the APK. */
+/** Desktop-only traces and repo scaffolding that must not ride in the APK.
+ *  `dist` is the previous desktop build (mac-arm64 .app, ~330 MB): the
+ *  whole-project trace copies it into standalone, and shipping it made
+ *  lh-server.zip 352 MB — large enough for compressDebugAssets to die with
+ *  "Java heap space". `plugins` is authoring source/tests; core-plugins is
+ *  the runtime payload (same curation as scripts/build-server.mjs). */
 const EXCLUDE = [
 	"mobile",
+	"dist",
+	"plugins",
 	"docs",
 	"tests",
 	"electron",
