@@ -72,6 +72,7 @@ import { EditableSourceName, SourceDragRow, sourceNameMatches, SourceFolderTree,
 import { chainRow, useChainNavigation } from "./chain-navigation";
 import { useServerEvent, useServerResync } from "./server-events";
 import { TopBar } from "@/components/top-bar";
+import { SyncStatusControl } from "@/components/sync-status-control";
 import { InteractionLayerOwner, useInteractionLayer } from "./interaction-layers";
 import { DeleteSourceDialog } from "@/components/delete-source-dialog";
 import { LatexGlyph } from "@/components/latex-glyph";
@@ -335,9 +336,12 @@ export function ChainTableBody({
 						placeholder={t("chains.searchPlaceholder")}
 						aria-label={t("chains.searchLabel")}
 						spellCheck={false}
-						className="lh-no-drag h-8 w-56 rounded-lg border bg-background pl-8 pr-3 text-xs outline-none placeholder:text-muted-foreground focus:border-ring"
+						className="lh-no-drag h-8 w-56 rounded-lg border bg-background pl-8 pr-3 text-xs outline-none placeholder:text-muted-foreground focus:border-ring max-md:w-28"
 					/>
 				</div>
+				{/* A plugin's node picker is embedded chrome, not a content page:
+				    sync lives on the standalone chains page only. */}
+				{!pickerChrome && <SyncStatusControl compact />}
 			<button
 					type="button"
 					data-testid="chain-table-close"

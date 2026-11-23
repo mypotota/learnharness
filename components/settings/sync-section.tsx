@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useT } from "@/components/i18n/i18n-provider";
 import { apiErrorMessage } from "@/components/i18n/api-error";
 import { useServerEvent } from "@/components/server-events";
+import { SyncConflictDialog } from "@/components/sync-conflict-dialog";
 import { SettingsRow, Toggle } from "./controls.tsx";
 import type { MessageKey } from "@/src/core/i18n";
 import type { SyncConflictKind, SyncStatusPayload } from "@/src/core";
@@ -57,7 +58,9 @@ export function SyncSection() {
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [autoSync, setAutoSync] = useState(true);
-	const [armed, setArmed] = useState(false);
+	// The dialog keeps the kind it opened with: resolving clears the live
+	// status, and the dialog still has to show its outcome (and backup path).
+	const [conflictKind, setConflictKind] = useState<SyncConflictKind | null>(null);
 	const [pending, setPending] = useState<Pending>(null);
 	const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 	const initialized = useRef(false);
@@ -164,7 +167,6 @@ export function SyncSection() {
 				body: JSON.stringify(force ? { force: true, confirm: "overwrite-remote" } : {}),
 			}, "settings.sync.actionFailed");
 			if (!body) return;
-			setArmed(false);
 			if (body.kind === "pushed") {
 				const size = (body.package as { size?: number } | undefined)?.size ?? 0;
 				setNotice({ kind: "ok", text: t("settings.sync.pushDone", { size: formatBytes(size) }) });
@@ -184,7 +186,6 @@ export function SyncSection() {
 				body: JSON.stringify(force ? { force: true, confirm: "replace-local" } : {}),
 			}, "settings.sync.actionFailed");
 			if (!body) return;
-			setArmed(false);
 			if (body.kind === "pulled") {
 				const size = typeof body.packageBytes === "number" ? body.packageBytes : 0;
 				setNotice({ kind: "ok", text: t("settings.sync.pullDone", { size: formatBytes(size) }) });
@@ -321,19 +322,24 @@ export function SyncSection() {
 				<div role="alert" className="rounded-sm border border-error/40 px-3 py-2 text-xs text-error">
 					<p className="font-medium">{t("settings.sync.conflictTitle")}</p>
 					<p className="mt-1">{t(CONFLICT_KEYS[conflict] as MessageKey)}</p>
-					<label className="mt-2 flex items-center gap-2 text-xs">
-						<input type="checkbox" checked={armed} onChange={(event) => setArmed(event.target.checked)} />
-						{t("settings.sync.confirmForce")}
-					</label>
-					<div className="mt-2 flex flex-wrap gap-2">
-						<Button size="xs" variant="outline" disabled={!armed || busy} onClick={() => void push(true)}>
-							{t("settings.sync.forcePush")}
-						</Button>
-						<Button size="xs" variant="outline" disabled={!armed || busy} onClick={() => void pull(true)}>
-							{t("settings.sync.forcePull")}
-						</Button>
-					</div>
+					<Button
+						data-testid="sync-conflict-open"
+						className="mt-2"
+						size="xs"
+						variant="outline"
+						disabled={busy}
+						onClick={() => setConflictKind(conflict)}
+					>
+						{t("syncStatus.resolve")}
+					</Button>
 				</div>
+			)}
+			{conflictKind && (
+				<SyncConflictDialog
+					conflict={conflictKind}
+					onClose={() => setConflictKind(null)}
+					onChanged={() => void readStatus()}
+				/>
 			)}
 
 			<div data-testid="sync-status" className="rounded-sm border border-border/60 px-3 py-2 text-xs">

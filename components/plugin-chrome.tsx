@@ -72,6 +72,19 @@ const SIDEBAR_CONTEXT = { placement: "sidebar", surface: "sidebar" } as const;
 const GRAPH_CONTEXT = { placement: "graph", surface: "graph" } as const;
 const SIDEBAR_BUTTON = "flex min-w-0 w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs uppercase tracking-wider text-muted-foreground transition-colors hover:bg-accent hover:text-foreground";
 const TOP_BUTTON = "flex h-9 min-w-0 max-w-48 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground";
+const MENU_ITEM = "flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground";
+
+/** Draft notifications refresh action predicates without re-rendering the
+ *  owning session transcript (shared by the top-bar row and the compact
+ *  "More" menu's items). */
+function useActionContextRefresher(refreshRef: RefObject<(() => void) | null>) {
+	const [, refresh] = useState(0);
+	useLayoutEffect(() => {
+		const notify = () => refresh(value => value + 1);
+		refreshRef.current = notify;
+		return () => { if (refreshRef.current === notify) refreshRef.current = null; };
+	}, [refreshRef]);
+}
 
 /** Core teaching/practice children lead the same row-major grid as placed actions. */
 export function PluginSidebarActions({ children }: { children: ReactNode }) {
@@ -117,15 +130,29 @@ export function PluginSessionTopBarActions({ readContext, captureContext, refres
 	captureContext: () => PluginActionContext | undefined;
 	refreshRef: RefObject<(() => void) | null>;
 }) {
-	const [, refresh] = useState(0);
-	useLayoutEffect(() => {
-		const notify = () => refresh(value => value + 1);
-		refreshRef.current = notify;
-		return () => { if (refreshRef.current === notify) refreshRef.current = null; };
-	}, [refreshRef]);
+	useActionContextRefresher(refreshRef);
 	// Each render needs a new context: its lazy view getter caches a snapshot.
 	const context = readContext();
 	return context ? <PluginTopBarActions context={context} captureContext={captureContext} /> : null;
+}
+
+/** The same session actions as full-width menu items: the compact top bar
+ *  trades the icon row for the "More" menu, and the plugins' own overflow
+ *  menu must not nest inside it. */
+export function PluginSessionTopBarMenuItems({ readContext, captureContext, refreshRef, onRun }: {
+	readContext: () => Extract<PluginActionContext, { placement: "top-bar"; surface: "session" }> | undefined;
+	captureContext: () => PluginActionContext | undefined;
+	refreshRef: RefObject<(() => void) | null>;
+	onRun: () => void;
+}) {
+	useActionContextRefresher(refreshRef);
+	const { snapshot } = usePlugins();
+	const context = readContext();
+	if (!context) return null;
+	const actions = placedPluginActions(snapshot.plugins, context);
+	if (!actions.length) return null;
+	return <>{actions.map(item => <ActionButton key={item.key} item={item} context={context} captureContext={captureContext} menuItem onRun={onRun}
+		className={MENU_ITEM} />)}</>;
 }
 
 export function PluginTopBarActions({ context, captureContext }: { context: Extract<PluginActionContext, { placement: "top-bar" }>; captureContext?: () => PluginActionContext | undefined }) {
@@ -204,7 +231,7 @@ export function PluginTopBarActions({ context, captureContext }: { context: Extr
 			menuClass="lh-no-drag w-64 rounded-xl border border-border bg-popover p-1 shadow-lg">
 			<div role="menu" aria-label={t("plugins.moreActions")}>
 			{excess.map(item => <ActionButton key={item.key} item={item} context={context} captureContext={captureContext} menuItem onRun={() => setMenuOpen(false)}
-				className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground" />)}
+				className={MENU_ITEM} />)}
 			</div>
 		</MenuShell>}
 	</div>;

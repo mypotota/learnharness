@@ -30,6 +30,7 @@ import { shell } from "./zh-CN/shell.ts";
 import { citation } from "./zh-CN/citation.ts";
 import { plugins } from "./zh-CN/plugins.ts";
 import { error } from "./zh-CN/error.ts";
+import { syncStatus } from "./zh-CN/sync-status.ts";
 
 export const ZH_CN_MESSAGES = {
 	common,
@@ -58,4 +59,5 @@ export const ZH_CN_MESSAGES = {
 	citation,
 	plugins,
 	error,
+	syncStatus,
 };

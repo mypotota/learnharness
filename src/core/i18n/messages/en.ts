@@ -33,6 +33,7 @@ import { shell } from "./en/shell.ts";
 import { citation } from "./en/citation.ts";
 import { plugins } from "./en/plugins.ts";
 import { error } from "./en/error.ts";
+import { syncStatus } from "./en/sync-status.ts";
 
 export const EN_MESSAGES = {
 	common,
@@ -61,6 +62,7 @@ export const EN_MESSAGES = {
 	citation,
 	plugins,
 	error,
+	syncStatus,
 } as const;
 
 export type EnglishCatalog = typeof EN_MESSAGES;

@@ -113,7 +113,11 @@ it("an older opening's late mutation reply cannot unlock a reopened tree with st
 	await mount(overlay(true)); await click("cluster-checkbox-a"); await click("chain-delete"); await click("source-delete-confirm");
 	await update(overlay(false));
 	const reads: ((response: Response) => void)[] = [];
-	globalThis.fetch = () => new Promise((resolve) => { reads.push(resolve); });
+	// The top bar's sync control reads its own status; this test counts the
+	// chain table's metadata refreshes, so answer that one separately.
+	globalThis.fetch = (url) => url === "/api/sync/status"
+		? Promise.resolve(Response.json({ configured: false }))
+		: new Promise((resolve) => { reads.push(resolve); });
 	await update(overlay(true, [sourceNode("historical", "practice")]));
 	await act(async () => { finishDelete(Response.json({ ...directory(), graphRevision: 1 })); });
 	assert.equal(document.querySelector('[data-testid="cluster-group-practice"]') === null, true, "the old response cannot reinstall stale visible groups");

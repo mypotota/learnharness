@@ -484,6 +484,80 @@ async function pushWith(config: SyncConfigRecord, force: boolean): Promise<PushR
 	};
 }
 
+/** One "sync now" by hand (the top-bar control). Not a new protocol: it is
+ *  the automatic step minus the throttle — pull when this device is clean
+ *  and the server is ahead, push when this device changed and the server is
+ *  untouched, stop with the conflict otherwise. Never forces. */
+export interface SyncNowOutcome {
+	ok: boolean;
+	kind: "up_to_date" | "pushed" | "pulled" | "conflict";
+	seq?: number;
+	conflict?: { kind: SyncConflictKind; remoteSeq: number };
+	pushed?: PushResult;
+	pulled?: PullResult;
+}
+
+export async function syncNow(): Promise<SyncNowOutcome> {
+	const config = requireConfig();
+	recoverJournal();
+	assertIdle();
+	return exclusive(() => manualStep(config));
+}
+
+async function manualStep(config: SyncConfigRecord): Promise<SyncNowOutcome> {
+	const client = clientFor(config);
+	setProgress("scanning");
+	const local = scanLocalTree({ force: true });
+	const pointer = await readPointer(client);
+	const state = readSyncState();
+	if (!pointer) {
+		if (local.files.length === 0) {
+			clearConflict();
+			return { ok: true, kind: "up_to_date" };
+		}
+		const pushed = await pushWith(config, false);
+		if (pushed.kind === "conflict") {
+			return { ok: false, kind: "conflict", conflict: pushed.conflict };
+		}
+		return { ok: true, kind: "pushed", seq: pushed.seq, pushed };
+	}
+	const remote = { seq: pointer.seq, treeHash: pointer.treeHash };
+	const pull = decidePull({
+		localTreeHash: local.treeHash,
+		localEmpty: local.files.length === 0,
+		lastAppliedSeq: state.lastAppliedSeq,
+		lastSyncedTreeHash: state.lastSyncedTreeHash,
+		remote,
+	});
+	if (pull.kind === "pull") {
+		const pulled = await pullWith(config, false);
+		if (pulled.kind === "conflict") return { ok: false, kind: "conflict", conflict: pulled.conflict };
+		if (pulled.ok) {
+			return pulled.kind === "up_to_date"
+				? { ok: true, kind: "up_to_date", seq: pulled.seq }
+				: { ok: true, kind: "pulled", seq: pulled.seq, pulled };
+		}
+	}
+	const push = decidePush({
+		localTreeHash: local.treeHash,
+		lastAppliedSeq: state.lastAppliedSeq,
+		lastSyncedTreeHash: state.lastSyncedTreeHash,
+		remote,
+	});
+	if (push.kind === "push") {
+		const pushed = await pushWith(config, false);
+		if (pushed.kind === "conflict") return { ok: false, kind: "conflict", conflict: pushed.conflict };
+		return { ok: true, kind: "pushed", seq: pushed.seq, pushed };
+	}
+	if (pull.kind === "up_to_date" || push.kind === "up_to_date") {
+		clearConflict();
+		return { ok: true, kind: "up_to_date", seq: pointer.seq };
+	}
+	const conflict = pull.kind === "conflict" ? pull.conflict : push.kind === "conflict" ? push.conflict : "remote_diverged";
+	recordConflict(conflict);
+	return { ok: false, kind: "conflict", conflict: { kind: conflict, remoteSeq: pointer.seq } };
+}
+
 export async function pullSync(input: { force?: boolean; confirm?: string } = {}): Promise<PullResult> {
 	const config = requireConfig();
 	if (input.force && input.confirm !== SYNC_CONFIRM_PULL) {

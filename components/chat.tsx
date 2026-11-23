@@ -66,12 +66,12 @@ import {
 	type ModelSlotName,
 } from "@/src/core";
 import { PlanBlock, PlanPopup, latestTree } from "@/components/plan-block";
-import { PlanUsageControl } from "@/components/plan-usage";
+import { PlanUsageControl, PlanUsageMenuBlock } from "@/components/plan-usage";
 import { splitQualified } from "@/components/usage-format";
 import { PlanMarginalia, planExists } from "@/components/plan-window";
 import { MermaidOverlay, SessionMermaidContext, type SessionImage } from "@/components/session-overlay";
 import { AbortTurnDialog, type AbortMode } from "@/components/abort-turn-dialog";
-import { ArrowRightIcon, DumbbellIcon, MessageCircleQuestionIcon, WaypointsIcon } from "lucide-react";
+import { ArrowRightIcon, DumbbellIcon, MessageCircleQuestionIcon, MoreHorizontalIcon, WaypointsIcon } from "lucide-react";
 import type { PlanBlockData } from "@/src/core";
 import { QuestionDock } from "@/components/question-dock";
 import { PluginQuestionDock } from "./plugin-question-dock";
@@ -99,7 +99,7 @@ import { readPluginProblemSubmission, pluginProblemById } from "@/src/core";
 import { ThinkingCard, ProblemCard, type PracticeThinkingData } from "@/components/practice-cards";
 import { GraphContextCard, type GraphContextData } from "@/components/graph-context-card";
 import { TopBar } from "@/components/top-bar";
-import { PluginSessionTopBarActions } from "@/components/plugin-chrome";
+import { PluginSessionTopBarActions, PluginSessionTopBarMenuItems } from "@/components/plugin-chrome";
 import { usePluginShortcutPage } from "@/components/plugin-shortcuts";
 import { createPluginSessionActionContext, type PluginSessionViewInput } from "@/src/core";
 import type { SessionInputViewReader, SessionViewTargets, NativeQuestionViewState, ViewReaderRef } from "./session-view-readers";
@@ -111,7 +111,10 @@ import {
 	CompactionMomentDivider,
 	type CompactionDividerData,
 } from "@/components/compaction-divider";
-import { CoverageRing } from "@/components/extraction-coverage";
+import { CoverageMenuBlock, CoverageRing } from "@/components/extraction-coverage";
+import { useCompact } from "@/components/use-compact";
+import { MenuShell } from "@/components/menu-shell";
+import { SyncStatusControl } from "@/components/sync-status-control";
 import { Button } from "@/components/ui/button";
 import {
 	activeProblemOf,
@@ -318,6 +321,7 @@ export function Chat({
 		useChatSession({ chatId, initialMessages, initialError, initiallyInFlight });
 
 	const t = useT();
+	const compact = useCompact();
 	const controller = useOptionalInteractionLayers();
 	const sessionFindScopeRef = useRef<HTMLDivElement | null>(null);
 	const pathname = usePathname();
@@ -1252,6 +1256,11 @@ export function Chat({
 	// The live plan popup (wave 4): opened by any transcript plan block, the
 	// top-bar plan chip, and the dock band's marginalia.
 	const [planOpen, setPlanOpen] = useState(false);
+	// The compact header's "More" menu (mobile top-bar round): the chips that
+	// cannot fit beside the title live here as full-width rows. `moreOpen` is
+	// local — the menu is chrome, not session state.
+	const [moreOpen, setMoreOpen] = useState(false);
+	const moreButtonRef = useRef<HTMLButtonElement | null>(null);
 	// Real plan presence — gates the marginalia's clickable flank. A JSX
 	// element is always truthy; gating on the node alone mounted a phantom
 	// (invisible, clickable) button in the bottom-right whenever a question
@@ -1802,7 +1811,7 @@ export function Chat({
 								setRenaming(true);
 							}}
 							data-plugin-chrome-title
-							className="lh-no-drag -mx-1.5 min-w-4 shrink cursor-text truncate rounded-md px-1.5 text-left font-title text-3xl tracking-tight transition-colors hover:bg-accent max-md:min-w-0 max-md:flex-1 max-md:text-xl"
+							className={`lh-no-drag -mx-1.5 min-w-4 shrink cursor-text truncate rounded-md px-1.5 text-left font-title text-3xl tracking-tight transition-colors hover:bg-accent max-md:min-w-0 max-md:flex-1 max-md:text-xl${compact ? " min-w-0 flex-1" : ""}`}
 						>
 							{titleText}
 							</button>
@@ -1812,51 +1821,146 @@ export function Chat({
 							<div className="min-w-4 flex-1" aria-hidden="true" />
 					</>
 					)}
-					{/* The plan chip (owner, plan-placement round): session-level
-					    structure beside the phase chip — access to the full-DAG popup
-					    at every width; the marginalia is the wide-screen glance view. */}
-					{planTree && (
-						<Hint label={t("chat.openFullPlan")} side="bottom">
-<button
-							type="button"
-							data-testid="plan-chip"
-							onClick={(e) => {
-								blurAfterPointerClick(e);
-								setPlanOpen(true);
-							}}
-							className="lh-no-drag flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border/80 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:border-border hover:text-foreground"
-						>
-							<WaypointsIcon className="size-3.5 text-primary" aria-hidden />
-							{t("chat.plan")}
-						</button>
-</Hint>
-					)}
-					{/* The extraction ring (owner-locked redesign, 2026-09-24): fills
-					    with uncovered vs the chunk threshold, pulses while a run is in
-					    flight, vanishes when the graph is off. Click → the exact
-					    numbers. Before the phase label — the chips cluster right. */}
-					{/* Practice (owner, 2026-10-04): the coverage ring hides —
-				    practice never extracts, so an ever-filling ring with no
-				    run behind it would lie. */}
-					{kind !== "practice" && <CoverageRing chatId={chatId} refreshKey={coverageTick} />}
-					{/* Practice sessions: no phase arc — a quiet Practice tag
-					    instead of the phase chip. */}
-					{kind === "practice" ? (
-						<span
-							data-testid="phase-chip"
-							data-phase="practice"
-							aria-hidden="true"
-							className="pointer-events-none flex shrink-0 select-none items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground"
-						>
-							<DumbbellIcon className="size-3" />
-							{t("chat.practice")}
-						</span>
+					{compact ? (
+						<>
+							{/* The phone header is ONE row: title, sync, More. Every chip
+							    below is a menu row — the title keeps its width (owner,
+							    mobile top-bar round). */}
+							<SyncStatusControl compact />
+							<div className="relative shrink-0">
+								<button
+									ref={moreButtonRef}
+									type="button"
+									data-testid="session-more"
+									aria-haspopup="menu"
+									aria-expanded={moreOpen}
+									aria-label={t("syncStatus.more")}
+									title={t("syncStatus.more")}
+									onClick={() => setMoreOpen(open => !open)}
+									className="lh-no-drag flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+								>
+									<MoreHorizontalIcon className="size-4" aria-hidden />
+								</button>
+								{moreOpen && (
+									<MenuShell
+										anchorRef={moreButtonRef}
+										testid="session-more-menu"
+										preferredSide="down"
+										align="right"
+										onClose={(reason) => {
+											setMoreOpen(false);
+											if (reason === "escape") moreButtonRef.current?.focus();
+											return "closed";
+										}}
+										menuClass="lh-no-drag w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-1 text-xs shadow-lg"
+									>
+										<div role="menu" aria-label={t("syncStatus.more")} className="flex flex-col">
+											{planTree && (
+												<button
+													type="button"
+													role="menuitem"
+													data-testid="compact-plan"
+													onClick={() => {
+														setMoreOpen(false);
+														setPlanOpen(true);
+													}}
+													className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+												>
+													<WaypointsIcon className="size-3.5 text-primary" aria-hidden />
+													{t("syncStatus.plan")}
+												</button>
+											)}
+											<div className="flex items-center justify-between gap-2 px-2 py-1.5" data-testid="compact-phase">
+												<span className="text-muted-foreground">{t("syncStatus.phase")}</span>
+												{kind === "practice" ? (
+													<span
+														data-testid="phase-chip"
+														data-phase="practice"
+														aria-hidden="true"
+														className="pointer-events-none flex select-none items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+													>
+														<DumbbellIcon className="size-3" />
+														{t("chat.practice")}
+													</span>
+												) : (
+													<PhaseChip phase={phases.at(-1) ?? "probe"} />
+												)}
+											</div>
+											{kind !== "practice" && (
+												<div className="border-t border-border/60 pt-1">
+													<div className="px-2 pt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+														{t("syncStatus.coverage")}
+													</div>
+													<CoverageMenuBlock chatId={chatId} />
+												</div>
+											)}
+											<PlanUsageMenuBlock provider={planUsageProvider} />
+											<div className="border-t border-border/60 pt-1">
+												<div className="px-2 pt-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+													{t("syncStatus.pluginActions")}
+												</div>
+												<PluginSessionTopBarMenuItems
+													readContext={actionContext}
+													captureContext={captureActionContext}
+													refreshRef={refreshPluginActions}
+													onRun={() => setMoreOpen(false)}
+												/>
+											</div>
+										</div>
+									</MenuShell>
+								)}
+							</div>
+						</>
 					) : (
-						<PhaseChip phase={phases.at(-1) ?? "probe"} />
+						<>
+							{/* The plan chip (owner, plan-placement round): session-level
+							    structure beside the phase chip — access to the full-DAG popup
+							    at every width; the marginalia is the wide-screen glance view. */}
+							{planTree && (
+								<Hint label={t("chat.openFullPlan")} side="bottom">
+	<button
+									type="button"
+									data-testid="plan-chip"
+									onClick={(e) => {
+										blurAfterPointerClick(e);
+										setPlanOpen(true);
+									}}
+									className="lh-no-drag flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-border/80 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground transition-colors hover:border-border hover:text-foreground"
+								>
+									<WaypointsIcon className="size-3.5 text-primary" aria-hidden />
+									{t("chat.plan")}
+								</button>
+	</Hint>
+							)}
+							{/* The extraction ring (owner-locked redesign, 2026-09-24): fills
+							    with uncovered vs the chunk threshold, pulses while a run is in
+							    flight, vanishes when the graph is off. Click → the exact
+							    numbers. Before the phase label — the chips cluster right. */}
+							{/* Practice (owner, 2026-10-04): the coverage ring hides —
+						    practice never extracts, so an ever-filling ring with no
+						    run behind it would lie. */}
+							{kind !== "practice" && <CoverageRing chatId={chatId} refreshKey={coverageTick} />}
+							{/* Practice sessions: no phase arc — a quiet Practice tag
+							    instead of the phase chip. */}
+							{kind === "practice" ? (
+								<span
+									data-testid="phase-chip"
+									data-phase="practice"
+									aria-hidden="true"
+									className="pointer-events-none flex shrink-0 select-none items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground"
+								>
+									<DumbbellIcon className="size-3" />
+									{t("chat.practice")}
+								</span>
+							) : (
+								<PhaseChip phase={phases.at(-1) ?? "probe"} />
+							)}
+							<PlanUsageControl provider={planUsageProvider} />
+							<PluginSessionTopBarActions readContext={actionContext} captureContext={captureActionContext} refreshRef={refreshPluginActions} />
+							<SyncStatusControl />
+						</>
 					)}
-					<PlanUsageControl provider={planUsageProvider} />
-					<PluginSessionTopBarActions readContext={actionContext} captureContext={captureActionContext} refreshRef={refreshPluginActions} />
-				</TopBar>
+					</TopBar>
 
 				<SessionFind scopeRef={sessionFindScopeRef} scrollContextRef={scrollContextRef} />
 				<div ref={sessionFindScopeRef} className="relative flex min-h-0 flex-1">

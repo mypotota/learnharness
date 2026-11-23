@@ -8,6 +8,7 @@ import { PluginMountPoint, usePlugins } from "@/components/plugins";
 import { SettingsIcon } from "lucide-react";
 import { TopBar } from "@/components/top-bar";
 import { PluginTopBarActions } from "@/components/plugin-chrome";
+import { SyncStatusControl } from "@/components/sync-status-control";
 import { usePluginShortcutPage } from "@/components/plugin-shortcuts";
 import { Hint } from "@/components/ui/hint";
 import { useSettingsDialog } from "@/components/settings/settings-dialog";
@@ -32,8 +33,9 @@ export function PluginViewScreen({ pluginId, viewId }: { pluginId: string; viewI
 	const unavailable = !plugin ? t("plugins.notInstalled") : !plugin.info.enabled ? t("plugins.disabled") : t("plugins.viewUnavailable");
 	return <div className="flex h-full min-w-0 flex-col">
 		<TopBar>
-			<h1 data-plugin-chrome-title className="min-w-0 truncate font-title text-3xl tracking-tight">{view?.name ?? (plugin?.info.manifest ? resolveManifestLabel(plugin.info.manifest, locale, "name") : undefined) ?? t("plugins.fallbackTitle")}</h1>
+			<h1 data-plugin-chrome-title className="min-w-0 truncate font-title text-3xl tracking-tight max-md:text-xl">{view?.name ?? (plugin?.info.manifest ? resolveManifestLabel(plugin.info.manifest, locale, "name") : undefined) ?? t("plugins.fallbackTitle")}</h1>
 			<div className="min-w-4 flex-1" aria-hidden="true" />
+			<SyncStatusControl compact />
 			<PluginTopBarActions context={{ placement: "top-bar", surface: "plugin-view", pluginId, viewId }} />
 			<Hint label={t("plugins.settings")} side="bottom">
 				<Button variant="ghost" size="icon" aria-label={t("plugins.settings")} title={t("plugins.settings")} className="shrink-0" onClick={() => open(`plugin:${pluginId}`)}><SettingsIcon className="size-4" /></Button>

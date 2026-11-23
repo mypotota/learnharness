@@ -103,18 +103,17 @@ function UsageWindowRow({ label, window }: { label: string; window: PlanUsageWin
 	);
 }
 
-export function PlanUsageControl({ provider }: { provider?: string }) {
-	const t = useT();
+/** The usage read shared by the top-bar ring and the compact "More" menu:
+ *  one fetch per mount, a 5-minute refresh, and an explicit freshen on
+ *  demand (the ring's popover opening). `usage: null` means "no honest
+ *  number" — both surfaces render nothing rather than a fake zero. */
+function usePlanUsageSnapshot(provider?: string) {
 	const { catalog } = useModelCatalog();
 	const resolvedProvider = provider ?? catalog?.slots.strong?.model.provider;
 	const [usage, setUsage] = useState<PlanUsage | null>(null);
 	const [failed, setFailed] = useState(false);
-	const [open, setOpen] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const abortRef = useRef<AbortController | null>(null);
-	const rootRef = useRef<HTMLDivElement>(null);
-	const panelRef = useRef<HTMLDivElement>(null);
-	const popupLayer = usePopoverDismiss(rootRef, open, () => setOpen(false), { layerRootRef: panelRef });
 
 	const load = useCallback(() => {
 		if (!resolvedProvider) return;
@@ -152,6 +151,17 @@ export function PlanUsageControl({ provider }: { provider?: string }) {
 			abortRef.current?.abort();
 		};
 	}, [resolvedProvider, load]);
+
+	return { usage, failed, loading, load };
+}
+
+export function PlanUsageControl({ provider }: { provider?: string }) {
+	const t = useT();
+	const { usage, failed, loading, load } = usePlanUsageSnapshot(provider);
+	const [open, setOpen] = useState(false);
+	const rootRef = useRef<HTMLDivElement>(null);
+	const panelRef = useRef<HTMLDivElement>(null);
+	const popupLayer = usePopoverDismiss(rootRef, open, () => setOpen(false), { layerRootRef: panelRef });
 
 	// Opening the popover is an explicit freshen request.
 	useEffect(() => {
@@ -208,6 +218,28 @@ export function PlanUsageControl({ provider }: { provider?: string }) {
 					</div>
 				</div>
 			)}
+		</div>
+	);
+}
+
+/** The compact "More" menu's usage block: the same two windows as the ring's
+ *  popover, inline in the menu (a popover inside a menu would fight for the
+ *  same layer). Mounts with the menu, so the read is on demand. */
+export function PlanUsageMenuBlock({ provider }: { provider?: string }) {
+	const t = useT();
+	const { usage, failed, loading } = usePlanUsageSnapshot(provider);
+	if (!usage) return null;
+	return (
+		<div data-testid="plan-usage-menu" className="px-2 py-1.5">
+			<div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+				{t("syncStatus.usage")}
+			</div>
+			<UsageWindowRow label={t("stats.planUsage.fiveHour")} window={usage.fiveHour} />
+			<UsageWindowRow label={t("stats.planUsage.weekly")} window={usage.weekly} />
+			<div className="mt-1 border-t pt-1.5 text-[10px] text-muted-foreground">
+				<p>{loading ? t("stats.planUsage.refreshing") : t("stats.planUsage.updatedAt", { time: timeLabel(usage.fetchedAt) })}</p>
+				{failed && <p className="mt-0.5 text-warning">{t("stats.planUsage.refreshFailed")}</p>}
+			</div>
 		</div>
 	);
 }
